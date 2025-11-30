@@ -1,0 +1,405 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from typing import List, Optional
+from datetime import datetime, timedelta
+import io
+import csv
+
+from app.core.database import get_db
+from app.core.auth import get_current_user
+from app.models.models import (
+    User, Product, Inventory, Warehouse, SalesOrder, SalesOrderItem,
+    Category, Supplier, InventoryAlert, OrderStatus
+)
+from app.schemas.schemas import (
+    InventoryValueReport,
+    SalesSummaryReport,
+    ProductPerformance
+)
+
+router = APIRouter()
+
+
+@router.get("/inventory-valuation", response_model=List[InventoryValueReport])
+async def get_inventory_valuation(
+    warehouse_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get inventory valuation report by warehouse."""
+    query = db.query(
+        Warehouse.id.label("warehouse_id"),
+        Warehouse.name.label("warehouse_name"),
+        func.count(func.distinct(Product.id)).label("total_products"),
+        func.sum(Inventory.quantity_on_hand).label("total_quantity"),
+        func.sum(Inventory.quantity_on_hand * Product.cost_price).label("total_value")
+    ).join(
+        Inventory, Warehouse.id == Inventory.warehouse_id
+    ).join(
+        Product, Inventory.product_id == Product.id
+    )
+    
+    if warehouse_id:
+        query = query.filter(Warehouse.id == warehouse_id)
+    
+    query = query.group_by(Warehouse.id, Warehouse.name)
+    
+    results = query.all()
+    
+    return [
+        InventoryValueReport(
+            warehouse_id=r.warehouse_id,
+            warehouse_name=r.warehouse_name,
+            total_products=r.total_products or 0,
+            total_quantity=r.total_quantity or 0,
+            total_value=r.total_value or 0.0
+        )
+        for r in results
+    ]
+
+
+@router.get("/sales-summary", response_model=SalesSummaryReport)
+async def get_sales_summary(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get sales summary report for a date range."""
+    # Default to last 30 days if no dates provided
+    if not end_date:
+        end_date_dt = datetime.now()
+    else:
+        end_date_dt = datetime.fromisoformat(end_date)
+    
+    if not start_date:
+        start_date_dt = end_date_dt - timedelta(days=30)
+    else:
+        start_date_dt = datetime.fromisoformat(start_date)
+    
+    query = db.query(
+        func.count(SalesOrder.id).label("total_orders"),
+        func.sum(SalesOrder.total_amount).label("total_revenue"),
+        func.sum(SalesOrderItem.quantity).label("total_items_sold")
+    ).join(
+        SalesOrderItem, SalesOrder.id == SalesOrderItem.sales_order_id
+    ).filter(
+        SalesOrder.order_date.between(start_date_dt, end_date_dt),
+        SalesOrder.status != OrderStatus.CANCELLED
+    )
+    
+    result = query.first()
+    
+    total_orders = result.total_orders or 0
+    total_revenue = result.total_revenue or 0.0
+    total_items_sold = result.total_items_sold or 0
+    avg_order_value = total_revenue / total_orders if total_orders > 0 else 0.0
+    
+    return SalesSummaryReport(
+        total_orders=total_orders,
+        total_revenue=total_revenue,
+        total_items_sold=total_items_sold,
+        average_order_value=avg_order_value
+    )
+
+
+@router.get("/product-performance", response_model=List[ProductPerformance])
+async def get_product_performance(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    limit: int = Query(10, ge=1, le=100),
+    sort_by: str = Query("revenue", regex="^(revenue|quantity)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get top performing products by revenue or quantity sold."""
+    # Default to last 30 days
+    if not end_date:
+        end_date_dt = datetime.now()
+    else:
+        end_date_dt = datetime.fromisoformat(end_date)
+    
+    if not start_date:
+        start_date_dt = end_date_dt - timedelta(days=30)
+    else:
+        start_date_dt = datetime.fromisoformat(start_date)
+    
+    query = db.query(
+        Product.id.label("product_id"),
+        Product.name.label("product_name"),
+        func.sum(SalesOrderItem.quantity).label("total_sold"),
+        func.sum(SalesOrderItem.line_total).label("total_revenue")
+    ).join(
+        SalesOrderItem, Product.id == SalesOrderItem.product_id
+    ).join(
+        SalesOrder, SalesOrderItem.sales_order_id == SalesOrder.id
+    ).filter(
+        SalesOrder.order_date.between(start_date_dt, end_date_dt),
+        SalesOrder.status != OrderStatus.CANCELLED
+    ).group_by(
+        Product.id, Product.name
+    )
+    
+    if sort_by == "revenue":
+        query = query.order_by(func.sum(SalesOrderItem.line_total).desc())
+    else:
+        query = query.order_by(func.sum(SalesOrderItem.quantity).desc())
+    
+    results = query.limit(limit).all()
+    
+    return [
+        ProductPerformance(
+            product_id=r.product_id,
+            product_name=r.product_name,
+            total_sold=r.total_sold or 0,
+            total_revenue=r.total_revenue or 0.0
+        )
+        for r in results
+    ]
+
+
+@router.get("/low-stock-summary")
+async def get_low_stock_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get summary of products with low stock."""
+    low_stock_products = db.query(
+        Product, Inventory
+    ).join(
+        Inventory, Product.id == Inventory.product_id
+    ).filter(
+        Inventory.quantity_on_hand <= Product.reorder_point
+    ).all()
+    
+    summary = {
+        "total_low_stock_products": len(low_stock_products),
+        "products": [
+            {
+                "product_id": p.id,
+                "product_name": p.name,
+                "sku": p.sku,
+                "current_quantity": inv.quantity_on_hand,
+                "reorder_point": p.reorder_point,
+                "reorder_quantity": p.reorder_quantity,
+                "warehouse_id": inv.warehouse_id
+            }
+            for p, inv in low_stock_products
+        ]
+    }
+    
+    return summary
+"""GST Tax Report endpoint - append to reports.py"""
+
+@router.get("/gst-summary")
+async def get_gst_summary(
+    start_date: str,
+    end_date: str,
+    format: str = "json",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate GST tax summary report grouped by tax rate
+    
+    Query params:
+    - start_date: YYYY-MM-DD
+    - end_date: YYYY-MM-DD
+    - format: json | csv | excel
+    """
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date) + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Use YYYY-MM-DD"
+        )
+    
+    # Query sales order items grouped by tax_rate
+    gst_data = db.query(
+        SalesOrderItem.tax_rate,
+        func.sum((SalesOrderItem.quantity * SalesOrderItem.unit_price) - SalesOrderItem.discount).label('taxable_amount'),
+        func.sum(SalesOrderItem.tax_amount).label('tax_collected'),
+        func.count(func.distinct(SalesOrderItem.sales_order_id)).label('order_count'),
+        func.sum(SalesOrderItem.quantity).label('items_sold')
+    ).join(
+        SalesOrder, SalesOrderItem.sales_order_id == SalesOrder.id
+    ).filter(
+        SalesOrder.created_at >= start_dt,
+        SalesOrder.created_at < end_dt,
+        SalesOrder.status != 'cancelled'
+    ).group_by(
+        SalesOrderItem.tax_rate
+    ).order_by(
+        SalesOrderItem.tax_rate
+    ).all()
+    
+    # Format data
+    summary = []
+    total_taxable = 0
+    total_tax = 0
+    total_orders = 0
+    total_items = 0
+    
+    for row in gst_data:
+        taxable = float(row.taxable_amount or 0)
+        tax = float(row.tax_collected or 0)
+        orders = int(row.order_count or 0)
+        items = int(row.items_sold or 0)
+        
+        summary.append({
+            "tax_rate": float(row.tax_rate or 0),
+            "taxable_amount": taxable,
+            "tax_collected": tax,
+            "order_count": orders,
+            "items_sold": items
+        })
+        
+        total_taxable += taxable
+        total_tax += tax
+        total_orders += orders
+        total_items += items
+    
+    report_data = {
+        "period": {
+            "start_date": start_date,
+            "end_date": end_date
+        },
+        "summary": summary,
+        "totals": {
+            "taxable_amount": total_taxable,
+            "tax_collected": total_tax,
+            "order_count": total_orders,
+            "items_sold": total_items
+        }
+    }
+    
+    # Return format based on request
+    if format == "csv":
+        return generate_gst_csv(report_data)
+    elif format == "excel":
+        return generate_gst_excel(report_data)
+    else:
+        return report_data
+
+
+def generate_gst_csv(report_data: dict) -> StreamingResponse:
+    """Generate CSV file from GST report data"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(['GST Tax Report'])
+    writer.writerow(['Period', f"{report_data['period']['start_date']} to {report_data['period']['end_date']}"])
+    writer.writerow([])
+    
+    # Column headers
+    writer.writerow(['GST Rate (%)', 'Taxable Amount (₹)', 'Tax Collected (₹)', 'Orders', 'Items Sold'])
+    
+    # Data rows
+    for item in report_data['summary']:
+        writer.writerow([
+            f"{item['tax_rate']:.0f}",
+            f"{item['taxable_amount']:.2f}",
+            f"{item['tax_collected']:.2f}",
+            item['order_count'],
+            item['items_sold']
+        ])
+    
+    # Total row
+    writer.writerow([])
+    totals = report_data['totals']
+    writer.writerow([
+        'Total',
+        f"{totals['taxable_amount']:.2f}",
+        f"{totals['tax_collected']:.2f}",
+        totals['order_count'],
+        totals['items_sold']
+    ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=gst_report_{report_data['period']['start_date']}_to_{report_data['period']['end_date']}.csv"}
+    )
+
+
+def generate_gst_excel(report_data: dict) -> StreamingResponse:
+    """Generate Excel file from GST report data"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill
+    except ImportError:
+        # Fallback to CSV if openpyxl not installed
+        return generate_gst_csv(report_data)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "GST Report"
+    
+    # Title
+    ws['A1'] = 'GST Tax Report'
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A2'] = f"Period: {report_data['period']['start_date']} to {report_data['period']['end_date']}"
+    
+    # Headers
+    headers = ['GST Rate (%)', 'Taxable Amount (₹)', 'Tax Collected (₹)', 'Orders', 'Items Sold']
+    ws.append([])
+    ws.append(headers)
+    
+    # Style headers
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    for col in range(1, 6):
+        cell = ws.cell(row=4, column=col)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+    
+    # Data rows
+    for item in report_data['summary']:
+        ws.append([
+            float(item['tax_rate']),
+            float(item['taxable_amount']),
+            float(item['tax_collected']),
+            int(item['order_count']),
+            int(item['items_sold'])
+        ])
+    
+    # Total row
+    ws.append([])
+    totals = report_data['totals']
+    total_row = ws.max_row + 1
+    ws.append([
+        'Total',
+        float(totals['taxable_amount']),
+        float(totals['tax_collected']),
+        int(totals['order_count']),
+        int(totals['items_sold'])
+    ])
+    
+    # Style total row
+    for col in range(1, 6):
+        cell = ws.cell(row=total_row, column=col)
+        cell.font = Font(bold=True)
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 15
+    ws.column_dimensions['B'].width = 20
+    ws.column_dimensions['C'].width = 20
+    ws.column_dimensions['D'].width = 12
+    ws.column_dimensions['E'].width = 15
+    
+    # Save to bytes
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=gst_report_{report_data['period']['start_date']}_to_{report_data['period']['end_date']}.xlsx"}
+    )
