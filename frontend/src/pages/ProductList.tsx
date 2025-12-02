@@ -18,6 +18,18 @@ const ProductList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    sku: '',
+    barcode: '',
+    cost_price: 0,
+    selling_price: 0,
+    tax_rate: 18,
+    reorder_point: 0
+  });
+  const [editLoading, setEditLoading] = useState(false);
 
   const fetchProducts = async () => {
     try {
@@ -49,6 +61,38 @@ const ProductList: React.FC = () => {
     } catch (error) {
       console.error('Failed to delete product:', error);
       alert('Failed to delete product');
+    }
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setEditFormData({
+      name: product.name,
+      sku: product.sku,
+      barcode: product.barcode || '',
+      cost_price: product.cost_price,
+      selling_price: product.selling_price,
+      tax_rate: (product as any).tax_rate || 18,
+      reorder_point: product.reorder_point
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    try {
+      setEditLoading(true);
+      await productsAPI.update(editingProduct.id, editFormData);
+      setShowEditModal(false);
+      fetchProducts();
+      alert('Product updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update product:', error);
+      alert(error.response?.data?.detail || 'Failed to update product');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -134,16 +178,16 @@ const ProductList: React.FC = () => {
                         <button
                           className="btn btn-outline"
                           style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
-                          onClick={() => alert('Edit functionality - coming soon!')}
+                          onClick={() => handleEdit(product)}
                         >
-                          Edit
+                          ✏️ Edit
                         </button>
                         <button
                           className="btn btn-danger"
                           style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
                           onClick={() => handleDelete(product.id)}
                         >
-                          Delete
+                          🗑️ Delete
                         </button>
                       </div>
                     </td>
@@ -164,6 +208,142 @@ const ProductList: React.FC = () => {
             alert('Product created successfully!');
           }}
         />
+      )}
+
+      {/* Edit Product Modal */}
+      {showEditModal && editingProduct && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setShowEditModal(false)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflow: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 className="text-xl font-bold">Edit Product</h2>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowEditModal(false)}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="label">Name *</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label className="label">SKU *</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editFormData.sku}
+                    onChange={(e) => setEditFormData({ ...editFormData, sku: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">Barcode</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editFormData.barcode}
+                    onChange={(e) => setEditFormData({ ...editFormData, barcode: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label className="label">Cost Price *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input"
+                    value={editFormData.cost_price}
+                    onChange={(e) => setEditFormData({ ...editFormData, cost_price: parseFloat(e.target.value) })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">Selling Price *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input"
+                    value={editFormData.selling_price}
+                    onChange={(e) => setEditFormData({ ...editFormData, selling_price: parseFloat(e.target.value) })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <label className="label">Tax Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input"
+                    value={editFormData.tax_rate}
+                    onChange={(e) => setEditFormData({ ...editFormData, tax_rate: parseFloat(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Reorder Point</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={editFormData.reorder_point}
+                    onChange={(e) => setEditFormData({ ...editFormData, reorder_point: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowEditModal(false)}
+                  disabled={editLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={editLoading}
+                >
+                  {editLoading ? 'Updating...' : 'Update Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

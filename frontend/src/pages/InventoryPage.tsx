@@ -21,6 +21,13 @@ const InventoryPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAdjustForm, setShowAdjustForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'stock' | 'transactions'>('stock');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingInventory, setEditingInventory] = useState<InventoryItem | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    quantity_on_hand: 0,
+    quantity_reserved: 0
+  });
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -52,6 +59,50 @@ const InventoryPage: React.FC = () => {
 
   const getAvailableQuantity = (item: InventoryItem) => {
     return item.quantity_on_hand - item.quantity_reserved;
+  };
+
+  const handleEdit = (item: InventoryItem) => {
+    setEditingInventory(item);
+    setEditFormData({
+      quantity_on_hand: item.quantity_on_hand,
+      quantity_reserved: item.quantity_reserved
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInventory) return;
+
+    try {
+      setEditLoading(true);
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/inventory/${editingInventory.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(editFormData)
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to update inventory');
+      }
+
+      setShowEditModal(false);
+      fetchData();
+      alert('Inventory updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update inventory:', error);
+      alert(error.message || 'Failed to update inventory');
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   return (
@@ -121,12 +172,13 @@ const InventoryPage: React.FC = () => {
                   <th>Available</th>
                   <th>Status</th>
                   <th>Last Updated</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {inventory.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>
                       No inventory records found. Add stock to get started.
                     </td>
                   </tr>
@@ -152,6 +204,15 @@ const InventoryPage: React.FC = () => {
                           )}
                         </td>
                         <td>{new Date(item.last_updated_at).toLocaleDateString()}</td>
+                        <td>
+                          <button
+                            className="btn btn-outline"
+                            style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
+                            onClick={() => handleEdit(item)}
+                          >
+                            ✏️ Edit
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -228,6 +289,104 @@ const InventoryPage: React.FC = () => {
             alert('Stock adjusted successfully!');
           }}
         />
+      )}
+
+      {/* Edit Inventory Modal */}
+      {showEditModal && editingInventory && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setShowEditModal(false)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: '500px', width: '90%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 className="text-xl font-bold">Edit Inventory</h2>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowEditModal(false)}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.5rem' }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Product</div>
+              <div>{editingInventory.product_name} ({editingInventory.product_sku})</div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>Warehouse: {editingInventory.warehouse_name}</div>
+            </div>
+
+            <form onSubmit={handleEditSubmit}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="label">Quantity On Hand *</label>
+                <input
+                  type="number"
+                  className="input"
+                  min="0"
+                  value={editFormData.quantity_on_hand}
+                  onChange={(e) => setEditFormData({ ...editFormData, quantity_on_hand: parseInt(e.target.value) || 0 })}
+                  required
+                />
+                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Current: {editingInventory.quantity_on_hand}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label className="label">Quantity Reserved *</label>
+                <input
+                  type="number"
+                  className="input"
+                  min="0"
+                  value={editFormData.quantity_reserved}
+                  onChange={(e) => setEditFormData({ ...editFormData, quantity_reserved: parseInt(e.target.value) || 0 })}
+                  required
+                />
+                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Current: {editingInventory.quantity_reserved}
+                </div>
+              </div>
+
+              <div style={{ padding: '1rem', backgroundColor: '#eff6ff', borderRadius: '0.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e40af' }}>
+                  Available: {editFormData.quantity_on_hand - editFormData.quantity_reserved} units
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowEditModal(false)}
+                  disabled={editLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={editLoading}
+                >
+                  {editLoading ? 'Updating...' : 'Update Inventory'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

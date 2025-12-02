@@ -134,6 +134,62 @@ async def adjust_inventory(
     }
 
 
+@router.put("/{inventory_id}", status_code=status.HTTP_200_OK)
+async def update_inventory(
+    inventory_id: str,
+    inventory_data: InventoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update inventory record."""
+    from app.core.audit import create_audit_log, serialize_model
+    
+    #Get inventory record
+    inventory = db.query(Inventory).filter(Inventory.id == inventory_id).first()
+    if not inventory:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory record not found"
+        )
+    
+    # Store old values for audit
+    old_values = serialize_model(inventory)
+    
+    # Update fields
+    update_data = inventory_data.dict(exclude_unset=True)
+    
+    # Validate quantities
+    for field, value in update_data.items():
+        if value is not None and value < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{field} cannot be negative"
+            )
+        setattr(inventory, field, value)
+    
+    inventory.updated_by = current_user.id
+    
+    db.commit()
+    db.refresh(inventory)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="Inventory",
+        entity_id=inventory.id,
+        old_values=old_values,
+        new_values=serialize_model(inventory)
+    )
+    db.commit()
+    
+    return {
+        "message": "Inventory updated successfully",
+        "inventory": inventory
+    }
+
+
 @router.post("/transfer", status_code=status.HTTP_200_OK)
 async def transfer_inventory(
     product_id: str,
