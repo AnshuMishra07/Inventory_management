@@ -156,6 +156,8 @@ const ReportsPage: React.FC = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await response.json();
+      console.log('Warehouse Products API Response:', data);
+      console.log('First product:', data[0]);
       setWarehouseProducts(data);
       setSelectedWarehouse({ id: warehouseId, name: warehouseName });
     } catch (error) {
@@ -689,20 +691,23 @@ const ReportsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {warehouseProducts.map((item: any) => (
-                    <tr key={item.id}>
-                      <td style={{ fontWeight: 600 }}>{item.product_name || 'N/A'}</td>
-                      <td>{item.product_sku || 'N/A'}</td>
-                      <td>{item.quantity_on_hand || 0}</td>
-                      <td>{item.quantity_reserved || 0}</td>
-                      <td>₹{item.product_cost_price?.toFixed(2) || '0.00'}</td>
-                      <td>
-                        <strong>
-                          ₹{((item.quantity_on_hand || 0) * (item.product_cost_price || 0)).toFixed(2)}
-                        </strong>
-                      </td>
-                    </tr>
-                  ))}
+                  {warehouseProducts.map((item: any) => {
+                    const unitPrice = item.product_cost_price || item.product_selling_price || 0;
+                    const totalValue = (item.quantity_on_hand || 0) * unitPrice;
+
+                    return (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 600 }}>{item.product_name || 'N/A'}</td>
+                        <td>{item.product_sku || 'N/A'}</td>
+                        <td>{item.quantity_on_hand || 0}</td>
+                        <td>{item.quantity_reserved || 0}</td>
+                        <td>₹{unitPrice.toFixed(2)}</td>
+                        <td>
+                          <strong>₹{totalValue.toFixed(2)}</strong>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

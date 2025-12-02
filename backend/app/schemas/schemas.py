@@ -185,6 +185,8 @@ class InventoryResponse(InventoryBase):
     id: str
     product_name: str
     product_sku: str
+    product_cost_price: float
+    product_selling_price: float
     warehouse_name: str
     last_counted_at: Optional[datetime] = None
     last_updated_at: datetime

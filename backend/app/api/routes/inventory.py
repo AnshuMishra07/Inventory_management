@@ -45,6 +45,8 @@ async def get_inventory(
             **{c.name: getattr(item, c.name) for c in item.__table__.columns},
             'product_name': item.product.name if item.product else 'Unknown',
             'product_sku': item.product.sku if item.product else 'N/A',
+            'product_cost_price': item.product.cost_price if item.product else 0.0,
+            'product_selling_price': item.product.selling_price if item.product else 0.0,
             'warehouse_name': item.warehouse.name if item.warehouse else 'Unknown'
         }
         result.append(item_dict)
