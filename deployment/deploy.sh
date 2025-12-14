@@ -27,7 +27,7 @@ fi
 export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
 
 # Validate required variables
-if [ "$VITE_API_URL" == "http://YOUR_LIGHTSAIL_PUBLIC_IP:8000" ]; then
+if [ "$VITE_API_URL" == "http://100.24.105.64:8000" ]; then
     echo "WARNING: VITE_API_URL is not configured!"
     echo "Please update .env file with your actual Lightsail public IP"
     echo ""

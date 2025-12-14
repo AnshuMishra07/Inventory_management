@@ -132,7 +132,7 @@ ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@YOUR_PUBLIC_IP
 
 ```bash
 # Download the setup script
-wget https://raw.githubusercontent.com/YOUR_USERNAME/Inventory_management/main/deployment/lightsail-setup.sh
+wget https://raw.githubusercontent.com/AnshuMishra07/Inventory_management/master/deployment/lightsail-setup.sh
 
 # OR if you don't have git repository yet, copy the content manually
 nano lightsail-setup.sh
