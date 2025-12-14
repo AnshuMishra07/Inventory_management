@@ -181,7 +181,7 @@ mkdir -p ~/apps
 cd ~/apps
 
 # Clone your repository
-git clone https://github.com/YOUR_USERNAME/Inventory_management.git
+git clone https://github.com/AnshuMishra07/Inventory_management.git
 cd Inventory_management
 ```
 
