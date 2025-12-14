@@ -48,23 +48,23 @@ if [ -d "$PROJECT_ROOT/.git" ]; then
 fi
 
 echo ">>> Stopping existing containers..."
-docker-compose -f docker-compose.prod.yml down || true
+sudo docker-compose -f docker-compose.prod.yml down || true
 
 echo ">>> Building Docker images..."
-docker-compose -f docker-compose.prod.yml build --no-cache
+sudo docker-compose -f docker-compose.prod.yml build --no-cache
 
 echo ">>> Starting services..."
-docker-compose -f docker-compose.prod.yml up -d
+sudo docker-compose -f docker-compose.prod.yml up -d
 
 echo ">>> Waiting for services to be healthy..."
 sleep 10
 
 echo ">>> Checking service status..."
-docker-compose -f docker-compose.prod.yml ps
+sudo docker-compose -f docker-compose.prod.yml ps
 
 echo ""
 echo ">>> Service Logs (last 20 lines):"
-docker-compose -f docker-compose.prod.yml logs --tail=20
+sudo docker-compose -f docker-compose.prod.yml logs --tail=20
 
 echo ""
 echo "========================================="
@@ -72,7 +72,7 @@ echo "  Deployment Complete!"
 echo "========================================="
 echo ""
 echo "Services Status:"
-docker-compose -f docker-compose.prod.yml ps
+sudo docker-compose -f docker-compose.prod.yml ps
 echo ""
 echo "Access Points:"
 echo "  Frontend:  http://$(curl -s ifconfig.me)"

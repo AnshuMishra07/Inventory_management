@@ -29,7 +29,7 @@ echo ""
 mkdir -p "$BACKUP_DIR"
 
 echo ">>> Creating database backup..."
-docker exec inventory_mysql mysqldump \
+sudo docker exec inventory_mysql mysqldump \
     -u root \
     -p"${MYSQL_ROOT_PASSWORD}" \
     --single-transaction \
