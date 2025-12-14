@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: inventory_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-inventory_management}
+      MYSQL_USER: ${MYSQL_USER:-inventory_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeme456}
+    ports:
+      - "127.0.0.1:3306:3306"  # Only localhost access
+    volumes:
+      - mysql_data:/var/lib/mysql
+    # Memory optimization for 1GB RAM instance
+    mem_limit: 448m
+    mem_reservation: 320m
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=50
+      --innodb_buffer_pool_size=128M
+      --innodb_log_file_size=32M
+      --performance_schema=OFF
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-changeme123}"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: inventory_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # Public API access
+    environment:
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-inventory_user}:${MYSQL_PASSWORD:-changeme456}@mysql:3306/${MYSQL_DATABASE:-inventory_management}
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key-in-production}
+      - ENVIRONMENT=production
+      - DEBUG=False
+    volumes:
+      - ../uploads:/app/uploads
+      - backend_logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # Memory optimization
+    mem_limit: 256m
+    mem_reservation: 192m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+    container_name: inventory_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"  # Public HTTP access
+    depends_on:
+      - backend
+    # Memory optimization
+    mem_limit: 256m
+    mem_reservation: 128m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+    driver: local
+  backend_logs:
+    driver: local
