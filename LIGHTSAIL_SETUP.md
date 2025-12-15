@@ -278,8 +278,8 @@ Replace `YOUR_PUBLIC_IP` with your Lightsail instance IP:
 curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@yourcompany.com",
-    "password": "YourAdminPassword123!",
+    "email": "admin@test.com",
+    "password": "admin123!",
     "full_name": "Admin User",
     "role": "admin"
   }'
