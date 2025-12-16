@@ -42,6 +42,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=production
       - DEBUG=False
+      - CORS_ORIGINS=${CORS_ORIGINS}
     volumes:
       - ../uploads:/app/uploads
       - backend_logs:/app/logs
