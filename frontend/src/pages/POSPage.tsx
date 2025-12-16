@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { productsAPI, customersAPI, salesAPI } from '../lib/api';
+import { productsAPI, customersAPI, salesAPI, default as api } from '../lib/api';
 
 interface CartItem {
     product_id: string;
@@ -18,7 +18,8 @@ const POSPage: React.FC = () => {
     const [barcode, setBarcode] = useState('');
     const [customers, setCustomers] = useState<any[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState('');
-    const [warehouseId] = useState('0e66a377-5ce8-4cfb-8513-35aae7a4b03e');
+    const [warehouseId, setWarehouseId] = useState('');
+    const [warehouses, setWarehouses] = useState<any[]>([]);
     const [discount, setDiscount] = useState(0);
     const [autoFulfill, setAutoFulfill] = useState(true); // Default to auto-fulfill
     const [markAsPaid, setMarkAsPaid] = useState(true); // Default to mark as paid
@@ -30,6 +31,7 @@ const POSPage: React.FC = () => {
 
     useEffect(() => {
         fetchCustomers();
+        fetchWarehouses();
         // Auto-focus barcode input
         barcodeInputRef.current?.focus();
     }, []);
@@ -40,6 +42,19 @@ const POSPage: React.FC = () => {
             setCustomers(response.data);
         } catch (error) {
             console.error('Failed to fetch customers:', error);
+        }
+    };
+
+    const fetchWarehouses = async () => {
+        try {
+            // Import warehousesAPI dynamically if not in imports, or assumes it's available
+            const response = await api.get('/warehouses');
+            setWarehouses(response.data);
+            if (response.data.length > 0) {
+                setWarehouseId(response.data[0].id);
+            }
+        } catch (error) {
+            console.error('Failed to fetch warehouses:', error);
         }
     };
 
