@@ -42,7 +42,10 @@ async def get_sales_orders(
     """Get all sales orders with optional filtering."""
     from sqlalchemy.orm import joinedload
     
-    query = db.query(SalesOrder).options(joinedload(SalesOrder.customer))
+    query = db.query(SalesOrder).options(
+        joinedload(SalesOrder.customer),
+        joinedload(SalesOrder.warehouse)
+    )
     
     if status_filter:
         query = query.filter(SalesOrder.status == status_filter)
@@ -58,6 +61,7 @@ async def get_sales_orders(
         order_dict = {
             **{c.name: getattr(order, c.name) for c in order.__table__.columns},
             'customer_name': order.customer.name if order.customer else 'Unknown',
+            'warehouse_name': order.warehouse.name if order.warehouse else 'Unknown',  # NEW
             'items': order.items
         }
         result.append(order_dict)
@@ -72,13 +76,36 @@ async def get_sales_order(
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific sales order by ID."""
-    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
+    from sqlalchemy.orm import joinedload
+    
+    order = db.query(SalesOrder).options(
+        joinedload(SalesOrder.customer),
+        joinedload(SalesOrder.warehouse),
+        joinedload(SalesOrder.items).joinedload(SalesOrderItem.product)
+    ).filter(SalesOrder.id == order_id).first()
+    
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Sales order not found"
         )
-    return order
+    
+    # Manually populate names for response
+    # Helper to convert to dict and add names
+    order_dict = {c.name: getattr(order, c.name) for c in order.__table__.columns}
+    order_dict['customer_name'] = order.customer.name if order.customer else 'Unknown'
+    order_dict['warehouse_name'] = order.warehouse.name if order.warehouse else 'Unknown'
+    
+    # Process items to add product names
+    items_data = []
+    for item in order.items:
+        item_dict = {c.name: getattr(item, c.name) for c in item.__table__.columns}
+        item_dict['product_name'] = item.product.name if item.product else 'Unknown'
+        items_data.append(item_dict)
+    
+    order_dict['items'] = items_data
+    
+    return order_dict
 
 
 @router.post("/", response_model=SalesOrderResponse, status_code=status.HTTP_201_CREATED)

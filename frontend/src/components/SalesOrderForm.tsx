@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { customersAPI, productsAPI, salesAPI } from '../lib/api';
+import { customersAPI, productsAPI, salesAPI, warehousesAPI } from '../lib/api';
 
 interface SalesOrderFormProps {
     onClose: () => void;
@@ -16,9 +16,10 @@ interface OrderItem {
 const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) => {
     const [customers, setCustomers] = useState<any[]>([]);
     const [products, setProducts] = useState<any[]>([]);
+    const [warehouses, setWarehouses] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         customer_id: '',
-        warehouse_id: '0e66a377-5ce8-4cfb-8513-35aae7a4b03e', // default warehouse
+        warehouse_id: '', // dynamic warehouse
         tax_amount: 0,
         discount_amount: 0,
         shipping_cost: 0,
@@ -39,12 +40,19 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
 
     const fetchData = async () => {
         try {
-            const [customersRes, productsRes] = await Promise.all([
+            const [customersRes, productsRes, warehousesRes] = await Promise.all([
                 customersAPI.getAll(),
-                productsAPI.getAll()
+                productsAPI.getAll(),
+                warehousesAPI.getAll()
             ]);
             setCustomers(customersRes.data);
             setProducts(productsRes.data);
+            setWarehouses(warehousesRes.data);
+
+            // Set default warehouse if available
+            if (warehousesRes.data.length > 0) {
+                setFormData(prev => ({ ...prev, warehouse_id: warehousesRes.data[0].id }));
+            }
         } catch (err) {
             console.error('Failed to fetch data:', err);
         }
@@ -157,14 +165,20 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
                             </select>
                         </div>
                         <div>
-                            <label className="label">Warehouse ID *</label>
-                            <input
-                                type="text"
+                            <label className="label">Warehouse *</label>
+                            <select
                                 className="input"
                                 value={formData.warehouse_id}
                                 onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
                                 required
-                            />
+                            >
+                                <option value="">Select warehouse</option>
+                                {warehouses.map(w => (
+                                    <option key={w.id} value={w.id}>
+                                        {w.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

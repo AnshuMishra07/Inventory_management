@@ -287,6 +287,7 @@ class SalesOrderItemResponse(SalesOrderItemCreate):
     id: str
     sales_order_id: str
     line_total: float
+    product_name: Optional[str] = None  # NEW
 
     class Config:
         from_attributes = True
@@ -345,6 +346,7 @@ class SalesOrderResponse(BaseModel):
     customer_id: str
     customer_name: Optional[str] = None
     warehouse_id: str
+    warehouse_name: Optional[str] = None  # NEW
     order_date: datetime
     status: OrderStatusEnum
     subtotal: float

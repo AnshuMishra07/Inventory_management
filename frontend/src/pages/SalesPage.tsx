@@ -8,6 +8,7 @@ interface SalesOrder {
   order_number: string;
   customer_id: string;
   customer_name: string;
+  warehouse_name: string; // NEW
   total_amount: number;
   status: string;
   payment_status: string;
@@ -15,7 +16,7 @@ interface SalesOrder {
 }
 
 const SalesPage: React.FC = () => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -48,18 +49,37 @@ const SalesPage: React.FC = () => {
   };
 
   const handleFulfillOrder = async (orderId: string) => {
-    if (!confirm('Fulfill this order? This will deduct inventory.')) return;
+    if (!confirm('Fulfill this order? This will deduct inventory. This action cannot be undone.')) return;
 
     try {
       await salesAPI.fulfill(orderId);
       fetchOrders();
       if (selectedOrder?.id === orderId) {
-        setSelectedOrder(null);
+        // Refresh details
+        const response = await salesAPI.getById(orderId);
+        setSelectedOrder(response.data);
       }
       alert('Order fulfilled successfully!');
     } catch (error: any) {
       console.error('Failed to fulfill order:', error);
       alert(error.response?.data?.detail || 'Failed to fulfill order');
+    }
+  };
+
+  const handleConfirmOrder = async (orderId: string) => {
+    if (!confirm('Confirm this order? This will allow fulfillment.')) return;
+
+    try {
+      await salesAPI.update(orderId, { status: 'confirmed' });
+      fetchOrders();
+      if (selectedOrder?.id === orderId) {
+        const response = await salesAPI.getById(orderId);
+        setSelectedOrder(response.data);
+      }
+      alert('Order confirmed!');
+    } catch (error: any) {
+      console.error('Failed to confirm order:', error);
+      alert(error.response?.data?.detail || 'Failed to confirm order');
     }
   };
 
@@ -184,6 +204,15 @@ const SalesPage: React.FC = () => {
                             Fulfill
                           </button>
                         )}
+                        {order.status === 'pending' && (
+                          <button
+                            className="btn btn-info bg-blue-500 text-white border-none hover:bg-blue-600"
+                            style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
+                            onClick={() => handleConfirmOrder(order.id)}
+                          >
+                            Confirm
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -219,7 +248,7 @@ const SalesPage: React.FC = () => {
                 <strong>Customer:</strong> {selectedOrder.customer_name || 'Unknown'}
               </div>
               <div>
-                <strong>Warehouse ID:</strong> {selectedOrder.warehouse_id}
+                <strong>Warehouse:</strong> {selectedOrder.warehouse_name || selectedOrder.warehouse_id}
               </div>
               <div>
                 <strong>Order Status:</strong> {getStatusBadge(selectedOrder.order_status || selectedOrder.status, 'order')}
@@ -247,7 +276,10 @@ const SalesPage: React.FC = () => {
                 <tbody>
                   {selectedOrder.items?.map((item: any, idx: number) => (
                     <tr key={idx}>
-                      <td>{item.product_id.substring(0, 8)}...</td>
+                      <td>
+                        <div className="font-medium">{item.product_name || 'Unknown Product'}</div>
+                        <div className="text-xs text-gray-500">{item.product_id.substring(0, 8)}...</div>
+                      </td>
                       <td>{item.quantity}</td>
                       <td>₹{item.unit_price.toFixed(2)}</td>
                       <td>₹{item.discount.toFixed(2)}</td>
@@ -299,6 +331,11 @@ const SalesPage: React.FC = () => {
               {(selectedOrder.status || selectedOrder.order_status) === 'confirmed' && (
                 <button className="btn btn-success" onClick={() => handleFulfillOrder(selectedOrder.id)}>
                   Fulfill Order
+                </button>
+              )}
+              {(selectedOrder.status || selectedOrder.order_status) === 'pending' && (
+                <button className="btn btn-info bg-blue-500 text-white border-none hover:bg-blue-600" onClick={() => handleConfirmOrder(selectedOrder.id)}>
+                  Confirm Order
                 </button>
               )}
               <button className="btn btn-outline" onClick={() => setSelectedOrder(null)}>
