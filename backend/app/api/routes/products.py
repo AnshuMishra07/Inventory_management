@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 
 from app.core.database import get_db
@@ -217,18 +218,25 @@ async def delete_product(
     # Store old values for audit
     old_values = serialize_model(product)
     
-    db.delete(product)
-    
-    # Audit log
-    create_audit_log(
-        db=db,
-        user_id=current_user.id,
-        action="DELETE",
-        entity_type="Product",
-        entity_id=product_id,
-        old_values=old_values
-    )
-    
-    db.commit()
+    try:
+        db.delete(product)
+        
+        # Audit log
+        create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="DELETE",
+            entity_type="Product",
+            entity_id=product_id,
+            old_values=old_values
+        )
+        
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete product because it particular referenced in inventory, sales, or purchase orders."
+        )
     
     return None

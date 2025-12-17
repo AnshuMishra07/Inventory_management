@@ -58,9 +58,9 @@ const ProductList: React.FC = () => {
     try {
       await productsAPI.delete(id);
       fetchProducts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete product:', error);
-      alert('Failed to delete product');
+      alert(error.response?.data?.detail || 'Failed to delete product');
     }
   };
 
