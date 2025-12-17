@@ -38,6 +38,27 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
         fetchData();
     }, []);
 
+    // Auto-calculate tax when items change
+    useEffect(() => {
+        const calculateTax = () => {
+            let totalTax = 0;
+            items.forEach(item => {
+                const product = products.find(p => p.id === item.product_id);
+                const taxRate = product?.tax_rate || 18; // Default to 18% if not found
+
+                const itemSubtotal = (item.quantity * item.unit_price) - item.discount;
+                if (itemSubtotal > 0) {
+                    totalTax += itemSubtotal * (taxRate / 100);
+                }
+            });
+            setFormData(prev => ({ ...prev, tax_amount: totalTax }));
+        };
+
+        if (products.length > 0) {
+            calculateTax();
+        }
+    }, [items, products]);
+
     const fetchData = async () => {
         try {
             const [customersRes, productsRes, warehousesRes] = await Promise.all([
@@ -205,7 +226,7 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
                                             <option value="">Select product</option>
                                             {products.map(p => (
                                                 <option key={p.id} value={p.id}>
-                                                    {p.name} ({p.sku}) - ₹{p.selling_price}
+                                                    {p.name} ({p.sku}) - ₹{p.selling_price} (Tax: {p.tax_rate}%)
                                                 </option>
                                             ))}
                                         </select>
@@ -236,7 +257,7 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'flex-end' }}>
                                     <div style={{ flex: 1 }}>
-                                        <label className="label">Discount ($)</label>
+                                        <label className="label">Discount (₹)</label>
                                         <input
                                             type="number"
                                             className="input"
@@ -267,18 +288,18 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
                     {/* Additional Charges */}
                     <div className="grid grid-cols-3 gap-4" style={{ marginBottom: '1rem' }}>
                         <div>
-                            <label className="label">Tax Amount ($)</label>
+                            <label className="label">Tax Amount (₹) - Auto</label>
                             <input
                                 type="number"
-                                className="input"
-                                value={formData.tax_amount}
-                                onChange={(e) => setFormData({ ...formData, tax_amount: parseFloat(e.target.value) || 0 })}
+                                className="input bg-gray-100" // Visual cue for read-only
+                                value={formData.tax_amount.toFixed(2)} // Display formatted
+                                readOnly // Make read-only
                                 step="0.01"
                                 min="0"
                             />
                         </div>
                         <div>
-                            <label className="label">Discount ($)</label>
+                            <label className="label">Order Discount (₹)</label>
                             <input
                                 type="number"
                                 className="input"
@@ -289,7 +310,7 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
                             />
                         </div>
                         <div>
-                            <label className="label">Shipping ($)</label>
+                            <label className="label">Shipping (₹)</label>
                             <input
                                 type="number"
                                 className="input"
