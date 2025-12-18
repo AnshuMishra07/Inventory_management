@@ -21,6 +21,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, onSuccess }) => {
         cost_price_inc_tax: 0,
         selling_price_inc_tax: 0,
         tax_rate: 18.0,  // Default 18% GST
+        hsn_sac: '0',
         supplier_id: ''
     });
     const [loading, setLoading] = useState(false);
@@ -113,17 +114,30 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, onSuccess }) => {
                         </div>
                     </div>
 
-                    <div style={{ marginTop: '1rem' }}>
-                        <label className="label">Product Name *</label>
-                        <input
-                            type="text"
-                            name="name"
-                            className="input"
-                            value={formData.name}
-                            onChange={handleChange}
-                            required
-                            placeholder="Enter product name"
-                        />
+                    <div className="grid grid-cols-2 gap-4" style={{ marginTop: '1rem' }}>
+                        <div>
+                            <label className="label">Product Name *</label>
+                            <input
+                                type="text"
+                                name="name"
+                                className="input"
+                                value={formData.name}
+                                onChange={handleChange}
+                                required
+                                placeholder="Enter product name"
+                            />
+                        </div>
+                        <div>
+                            <label className="label">HSN/SAC</label>
+                            <input
+                                type="text"
+                                name="hsn_sac"
+                                className="input"
+                                value={formData.hsn_sac}
+                                onChange={handleChange}
+                                placeholder="Enter HSN/SAC (0 for default)"
+                            />
+                        </div>
                     </div>
 
                     <div style={{ marginTop: '1rem' }}>

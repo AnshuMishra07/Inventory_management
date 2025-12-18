@@ -12,6 +12,7 @@ interface Product {
   cost_price_inc_tax: number;
   selling_price_inc_tax: number;
   reorder_point: number;
+  hsn_sac?: string;
   created_at: string;
 }
 
@@ -30,6 +31,7 @@ const ProductList: React.FC = () => {
     selling_price: 0,
     tax_rate: 18,
     reorder_point: 0,
+    hsn_sac: '0',
     cost_price_inc_tax: 0,
     selling_price_inc_tax: 0
   });
@@ -90,6 +92,7 @@ const ProductList: React.FC = () => {
       selling_price: product.selling_price,
       tax_rate: (product as any).tax_rate || 18,
       reorder_point: product.reorder_point,
+      hsn_sac: product.hsn_sac || '0',
       cost_price_inc_tax: product.cost_price_inc_tax,
       selling_price_inc_tax: product.selling_price_inc_tax
     });
@@ -186,7 +189,10 @@ const ProductList: React.FC = () => {
                 products.map(product => (
                   <tr key={product.id}>
                     <td>{product.sku}</td>
-                    <td style={{ fontWeight: 500 }}>{product.name}</td>
+                    <td style={{ fontWeight: 500 }}>
+                      <div>{product.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>HSN: {product.hsn_sac || '0'}</div>
+                    </td>
                     <td>{product.barcode || '-'}</td>
                     <td>₹{product.cost_price.toFixed(2)}</td>
                     <td>₹{product.cost_price_inc_tax?.toFixed(2) || (product.cost_price * (1 + ((product as any).tax_rate || 18) / 100)).toFixed(2)}</td>
@@ -268,13 +274,22 @@ const ProductList: React.FC = () => {
             <form onSubmit={handleEditSubmit}>
               <div style={{ marginBottom: '1rem' }}>
                 <label className="label">Name *</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={editFormData.name}
-                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  required
-                />
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    required
+                  />
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="HSN/SAC"
+                    value={editFormData.hsn_sac}
+                    onChange={(e) => setEditFormData({ ...editFormData, hsn_sac: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>

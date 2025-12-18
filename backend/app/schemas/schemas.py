@@ -134,6 +134,7 @@ class ProductBase(BaseModel):
     cost_price_inc_tax: float = 0.0  # Cost price including GST
     selling_price_inc_tax: float = 0.0  # Selling price including GST
     is_tax_inclusive: bool = False  # Tax-inclusive pricing
+    hsn_sac: Optional[str] = "0"
     supplier_id: Optional[str] = None
 
 
@@ -151,6 +152,7 @@ class ProductUpdate(BaseModel):
     reorder_quantity: Optional[int] = None
     cost_price: Optional[float] = None
     selling_price: Optional[float] = None
+    hsn_sac: Optional[str] = None
     tax_rate: Optional[float] = None
     cost_price_inc_tax: Optional[float] = None
     selling_price_inc_tax: Optional[float] = None
@@ -292,6 +294,7 @@ class SalesOrderItemResponse(SalesOrderItemCreate):
     sales_order_id: str
     line_total: float
     product_name: Optional[str] = None  # NEW
+    product_hsn_sac: Optional[str] = None  # NEW
 
     class Config:
         from_attributes = True

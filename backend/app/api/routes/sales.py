@@ -101,6 +101,7 @@ async def get_sales_order(
     for item in order.items:
         item_dict = {c.name: getattr(item, c.name) for c in item.__table__.columns}
         item_dict['product_name'] = item.product.name if item.product else 'Unknown'
+        item_dict['product_hsn_sac'] = item.product.hsn_sac if item.product else '0'
         items_data.append(item_dict)
     
     order_dict['items'] = items_data

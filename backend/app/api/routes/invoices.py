@@ -69,7 +69,14 @@ async def get_invoice(
         "seller_gstin": None,  # Not in user profile
         
         # Order items
-        "items": order.items,
+        "items": [
+            {
+                **{c.name: getattr(item, c.name) for c in item.__table__.columns},
+                "product_name": item.product.name if item.product else "Unknown",
+                "product_hsn_sac": item.product.hsn_sac if item.product else "0"
+            }
+            for item in order.items
+        ],
         
         # Totals
         "subtotal": order.subtotal,
@@ -184,7 +191,7 @@ async def download_invoice_pdf(
     # Items table
     y = height - 320
     p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, y, "Item")
+    p.drawString(50, y, "Product")
     p.drawString(280, y, "Qty")
     p.drawString(340, y, "Price")
     p.drawString(400, y, "Tax")
@@ -198,13 +205,18 @@ async def download_invoice_pdf(
     # Items
     p.setFont("Helvetica", 9)
     for item in order.items:
-        product_name = item.product.name[:40] if item.product else "Unknown"
-        p.drawString(50, y, product_name)
+        product_name = item.product.name if item.product else "Unknown"
+        hsn_sac = item.product.hsn_sac if item.product else "0"
+        
+        # Display name and HSN/SAC
+        p.drawString(50, y, product_name[:40])
+        p.drawString(50, y - 10, f"HSN: {hsn_sac}")
+        
         p.drawString(280, y, str(item.quantity))
-        p.drawRightString(390, y, f"₹{item.unit_price:.2f}")
+        p.drawRightString(390, y, f"Rs.{item.unit_price:.2f}")
         p.drawString(400, y, f"{item.tax_rate}%")
-        p.drawRightString(540, y, f"₹{item.line_total:.2f}")
-        y -= 12
+        p.drawRightString(540, y, f"Rs.{item.line_total:.2f}")
+        y -= 25  # More space for two lines
         
         if y < 150:  # Start new page if running out of space
             p.showPage()
@@ -214,25 +226,25 @@ async def download_invoice_pdf(
     y -= 20
     p.setFont("Helvetica", 10)
     p.drawString(380, y, "Subtotal:")
-    p.drawRightString(540, y, f"₹{order.subtotal:.2f}")
+    p.drawRightString(540, y, f"Rs.{order.subtotal:.2f}")
     y -= 12
     
     if order.discount_amount > 0:
         p.drawString(380, y, "Discount:")
-        p.drawRightString(540, y, f"-₹{order.discount_amount:.2f}")
+        p.drawRightString(540, y, f"-Rs.{order.discount_amount:.2f}")
         y -= 12
     
     p.drawString(380, y, "CGST:")
-    p.drawRightString(540, y, f"₹{order.tax_amount / 2:.2f}")
+    p.drawRightString(540, y, f"Rs.{order.tax_amount / 2:.2f}")
     y -= 12
     
     p.drawString(380, y, "SGST:")
-    p.drawRightString(540, y, f"₹{order.tax_amount / 2:.2f}")
+    p.drawRightString(540, y, f"Rs.{order.tax_amount / 2:.2f}")
     y -= 15
     
     p.setFont("Helvetica-Bold", 12)
     p.drawString(380, y, "Total:")
-    p.drawRightString(540, y, f"₹{order.total_amount:.2f}")
+    p.drawRightString(540, y, f"Rs.{order.total_amount:.2f}")
     
     # Payment info
     if order.payment_method:

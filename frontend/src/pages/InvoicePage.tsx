@@ -36,6 +36,8 @@ interface InvoiceData {
     items: Array<{
         id: string;
         product_id: string;
+        product_name?: string;
+        product_hsn_sac?: string;
         quantity: number;
         unit_price: number;
         tax_rate: number;
@@ -181,7 +183,7 @@ const InvoicePage: React.FC = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#f3f4f6', borderBottom: '2px solid #d1d5db' }}>
-                            <th style={{ padding: '0.75rem', textAlign: 'left' }}>Item</th>
+                            <th style={{ padding: '0.75rem', textAlign: 'left' }}>Product</th>
                             <th style={{ padding: '0.75rem', textAlign: 'center' }}>Qty</th>
                             <th style={{ padding: '0.75rem', textAlign: 'right' }}>Price</th>
                             <th style={{ padding: '0.75rem', textAlign: 'center' }}>Tax</th>
@@ -189,9 +191,12 @@ const InvoicePage: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {invoice.items.map((item, index) => (
+                        {invoice.items.map((item) => (
                             <tr key={item.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                <td style={{ padding: '0.75rem' }}>Item #{index + 1}</td>
+                                <td style={{ padding: '0.75rem' }}>
+                                    <div style={{ fontWeight: '600' }}>{item.product_name || 'Unknown Product'}</div>
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>HSN: {item.product_hsn_sac || '0'}</div>
+                                </td>
                                 <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.quantity}</td>
                                 <td style={{ padding: '0.75rem', textAlign: 'right' }}>₹{item.unit_price.toFixed(2)}</td>
                                 <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.tax_rate ?? 18}%</td>
