@@ -13,6 +13,7 @@ import ReportsPage from './pages/ReportsPage';
 import QuickScan from './pages/QuickScan';
 import POSPage from './pages/POSPage';
 import InvoicePage from './pages/InvoicePage';
+import WarehousePage from './pages/WarehousePage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -40,6 +41,7 @@ function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="products" element={<ProductList />} />
                     <Route path="inventory" element={<InventoryPage />} />
+                    <Route path="warehouses" element={<WarehousePage />} />
                     <Route path="sales" element={<SalesPage />} />
                     <Route path="customers" element={<CustomersPage />} />
                     <Route path="alerts" element={<AlertsPage />} />

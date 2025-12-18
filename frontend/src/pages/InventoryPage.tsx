@@ -254,8 +254,8 @@ const InventoryPage: React.FC = () => {
                   transactions.map(trans => (
                     <tr key={trans.id}>
                       <td>{new Date(trans.created_at).toLocaleString()}</td>
-                      <td>{getProductName(trans.product_id)}</td>
-                      <td>{trans.warehouse_id}</td>
+                      <td>{trans.product_name} ({trans.product_sku})</td>
+                      <td>{trans.warehouse_name}</td>
                       <td>
                         <span className={`badge ₹{trans.transaction_type === 'sale' ? 'badge-danger' :
                             trans.transaction_type === 'purchase' ? 'badge-success' :

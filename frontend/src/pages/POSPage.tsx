@@ -71,7 +71,7 @@ const POSPage: React.FC = () => {
             if (response.data && response.data.length > 0) {
                 const product = response.data[0];
                 addToCart(product);
-                setMessage(`✓ Added: ₹{product.name}`);
+                setMessage('✓ Added: ' + product.name);
             } else {
                 setMessage('❌ Product not found');
             }
@@ -398,7 +398,7 @@ const POSPage: React.FC = () => {
                         padding: '0.75rem',
                         backgroundColor: autoFulfill ? '#d1fae5' : '#fef3c7',
                         borderRadius: '0.375rem',
-                        border: `2px solid ₹{autoFulfill ? '#10b981' : '#f59e0b'}`
+                        border: '2px solid ' + (autoFulfill ? '#10b981' : '#f59e0b')
                     }}>
                         <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }}>
                             <input
@@ -427,7 +427,7 @@ const POSPage: React.FC = () => {
                         padding: '0.75rem',
                         backgroundColor: markAsPaid ? '#d1fae5' : '#fee2e2',
                         borderRadius: '0.375rem',
-                        border: `2px solid ₹{markAsPaid ? '#10b981' : '#ef4444'}`
+                        border: '2px solid ' + (markAsPaid ? '#10b981' : '#ef4444')
                     }}>
                         <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }}>
                             <input

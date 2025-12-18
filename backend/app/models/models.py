@@ -135,6 +135,7 @@ class Warehouse(Base):
     inventory = relationship("Inventory", back_populates="warehouse")
     sales_orders = relationship("SalesOrder", back_populates="warehouse")
     purchase_orders = relationship("PurchaseOrder", back_populates="warehouse")
+    inventory_transactions = relationship("InventoryTransaction", back_populates="warehouse")
 
 
 class Supplier(Base):
@@ -229,6 +230,7 @@ class InventoryTransaction(Base):
     
     # Relationships
     product = relationship("Product", back_populates="inventory_transactions")
+    warehouse = relationship("Warehouse", back_populates="inventory_transactions")
 
 
 class Customer(Base):

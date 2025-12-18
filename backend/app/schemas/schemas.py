@@ -240,6 +240,14 @@ class WarehouseCreate(WarehouseBase):
     pass
 
 
+class WarehouseUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    address: Optional[str] = None
+    manager_id: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class WarehouseResponse(WarehouseBase):
     id: str
     created_at: datetime

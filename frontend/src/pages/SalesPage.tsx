@@ -120,7 +120,7 @@ const SalesPage: React.FC = () => {
     const colors = type === 'order' ? badgeColors.order : badgeColors.payment;
     const colorClass = colors[status as keyof typeof colors] || 'badge-info';
 
-    return <span className={`badge ₹{colorClass}`}>{status}</span>;
+    return <span className={'badge ' + colorClass}>{status}</span>;
   };
 
   const formatDate = (dateString: string | null | undefined) => {

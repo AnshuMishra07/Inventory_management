@@ -12,7 +12,7 @@ const QuickScan: React.FC = () => {
   const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (barcode) {
-      alert(`Scanned: ₹{barcode}`);
+      alert('Scanned: ' + barcode);
       setBarcode('');
       inputRef.current?.focus();
     }
@@ -21,11 +21,11 @@ const QuickScan: React.FC = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Quick Scan</h1>
-      <div className="card" style={{maxWidth: '600px', margin: '0 auto'}}>
+      <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
         <p className="mb-4 text-gray-500">
           USB barcode scanners work via keyboard emulation. Simply focus the input below and scan!
         </p>
-        
+
         <form onSubmit={handleScan}>
           <div className="mb-4">
             <label className="label">Scan or Enter Barcode</label>
@@ -37,12 +37,12 @@ const QuickScan: React.FC = () => {
               onChange={(e) => setBarcode(e.target.value)}
               placeholder="Scan barcode here..."
               autoFocus
-              style={{fontSize: '1.25rem', padding: '1rem'}}
+              style={{ fontSize: '1.25rem', padding: '1rem' }}
             />
           </div>
-          
+
           <div className="alert alert-info">
-            <strong>📱 Tip:</strong> USB barcode scanners automatically enter the scanned code and press Enter. 
+            <strong>📱 Tip:</strong> USB barcode scanners automatically enter the scanned code and press Enter.
             Keep this field focused for seamless scanning.
           </div>
         </form>

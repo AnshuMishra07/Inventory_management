@@ -5,7 +5,7 @@ from typing import List
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.models.models import Warehouse, User
-from app.schemas.schemas import WarehouseCreate, WarehouseResponse
+from app.schemas.schemas import WarehouseCreate, WarehouseResponse, WarehouseUpdate
 
 router = APIRouter()
 
@@ -58,6 +58,36 @@ async def create_warehouse(
     db.commit()
     db.refresh(db_warehouse)
     
+    return db_warehouse
+
+
+@router.put("/{warehouse_id}", response_model=WarehouseResponse)
+async def update_warehouse(
+    warehouse_id: str,
+    warehouse_data: WarehouseUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update a warehouse."""
+    db_warehouse = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
+    if not db_warehouse:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Warehouse not found"
+        )
+    
+    update_data = warehouse_data.dict(exclude_unset=True)
+    
+    # Handle manager_id conversion if provided
+    if 'manager_id' in update_data:
+        if update_data['manager_id'] == '' or update_data['manager_id'] == 'manager-1':
+            update_data['manager_id'] = None
+            
+    for key, value in update_data.items():
+        setattr(db_warehouse, key, value)
+    
+    db.commit()
+    db.refresh(db_warehouse)
     return db_warehouse
 
 

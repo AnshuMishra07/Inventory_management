@@ -281,8 +281,13 @@ async def get_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get inventory transaction history."""
-    query = db.query(InventoryTransaction)
+    """Get inventory transaction history with product and warehouse names."""
+    from sqlalchemy.orm import joinedload
+    
+    query = db.query(InventoryTransaction).options(
+        joinedload(InventoryTransaction.product),
+        joinedload(InventoryTransaction.warehouse)
+    )
     
     if product_id:
         query = query.filter(InventoryTransaction.product_id == product_id)
@@ -296,7 +301,10 @@ async def get_transactions(
         {
             "id": t.id,
             "product_id": t.product_id,
+            "product_name": t.product.name if t.product else "Unknown",
+            "product_sku": t.product.sku if t.product else "N/A",
             "warehouse_id": t.warehouse_id,
+            "warehouse_name": t.warehouse.name if t.warehouse else "Unknown",
             "transaction_type": t.transaction_type,
             "quantity": t.quantity,
             "notes": t.notes,

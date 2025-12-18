@@ -85,7 +85,7 @@ const Dashboard: React.FC = () => {
       delivered: 'badge-success',
       cancelled: 'badge-danger'
     };
-    return <span className={`badge ₹{colors[status] || 'badge-info'}`}>{status}</span>;
+    return <span className={'badge ' + (colors[status] || 'badge-info')}>{status}</span>;
   };
 
   if (loading) {
