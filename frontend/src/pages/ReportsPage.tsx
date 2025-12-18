@@ -382,7 +382,7 @@ const ReportsPage: React.FC = () => {
           {/* Sales Summary Report */}
           {activeReport === 'sales' && salesReport && (
             <div>
-              <div className="grid grid-cols-5 gap-4 mb-4">
+              <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="card" style={{ backgroundColor: '#f0fdf4' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>
                     ₹{salesReport.total_revenue?.toFixed(2) || '0.00'}
@@ -407,28 +407,39 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Avg Order Value</div>
                 </div>
-                {/* Detailed Sales Dashboard Tile */}
-                <div
-                  className="card cursor-pointer hover:shadow-lg transition-shadow"
-                  style={{
-                    backgroundColor: 'white',
-                    border: '2px solid #e0e7ff',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    padding: '1rem'
-                  }}
-                  onClick={() => {
-                    setActiveReport('detailed');
-                    fetchDetailedSalesReport();
-                  }}
-                >
-                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📈</div>
-                  <div style={{ fontWeight: 600, color: '#4f46e5', fontSize: '0.875rem' }}>Detailed Sales</div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>View Report ➔</div>
+              </div>
+
+              {/* Detailed Sales Dashboard Tile */}
+              <div
+                className="card mb-4 cursor-pointer hover:shadow-lg transition-shadow"
+                style={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '1.5rem'
+                }}
+                onClick={() => {
+                  setActiveReport('detailed');
+                  fetchDetailedSalesReport();
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{
+                    backgroundColor: '#e0e7ff',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    color: '#4f46e5'
+                  }}>
+                    📈
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827' }}>Detailed Sales Dashboard</h3>
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>View comprehensive sales data, profit margins, and GST liability</p>
+                  </div>
                 </div>
+                <div style={{ color: '#9ca3af' }}>➔</div>
               </div>
 
 
