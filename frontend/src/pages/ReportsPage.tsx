@@ -712,24 +712,30 @@ const ReportsPage: React.FC = () => {
                 </button>
               </div>
               {/* Summary Cards */}
-              <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="card" style={{ backgroundColor: '#fff7ed' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#c2410c' }}>
                     ₹{detailedSalesReport.totals?.gst_liability?.toFixed(2) || '0.00'}
                   </div>
                   <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total GST Liability</div>
                 </div>
+                <div className="card" style={{ backgroundColor: '#fff1f2' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#e11d48' }}>
+                    ₹{detailedSalesReport.totals?.total_all_discounts?.toFixed(2) || '0.00'}
+                  </div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total Discount</div>
+                </div>
                 <div className="card" style={{ backgroundColor: '#ecfccb' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#65a30d' }}>
                     ₹{detailedSalesReport.totals?.profit_excl_gst?.toFixed(2) || '0.00'}
                   </div>
-                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total Profit (Excl. GST)</div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Net Profit (Excl. GST)</div>
                 </div>
                 <div className="card" style={{ backgroundColor: '#f0fdf4' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#15803d' }}>
                     ₹{detailedSalesReport.totals?.profit_inc_gst?.toFixed(2) || '0.00'}
                   </div>
-                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total Profit (Inc. GST)</div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Net Profit (Inc. GST)</div>
                 </div>
               </div>
 
@@ -750,6 +756,8 @@ const ReportsPage: React.FC = () => {
                       <th>Order #</th>
                       <th>Product</th>
                       <th>Qty</th>
+                      <th>Item Disc.</th>
+                      <th>Order Disc.</th>
                       <th>Cost (Excl GST)</th>
                       <th>Cost (Inc GST)</th>
                       <th>Selling (Excl GST)</th>
@@ -761,7 +769,7 @@ const ReportsPage: React.FC = () => {
                   </thead>
                   <tbody>
                     {detailedSalesReport.items?.length === 0 ? (
-                      <tr><td colSpan={11} className="text-center p-4">No sales found</td></tr>
+                      <tr><td colSpan={12} className="text-center p-4">No sales found</td></tr>
                     ) : (
                       detailedSalesReport.items?.map((item: any) => (
                         <tr key={item.order_number + item.product_name}>
@@ -769,6 +777,8 @@ const ReportsPage: React.FC = () => {
                           <td>{item.order_number}</td>
                           <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                           <td>{item.quantity}</td>
+                          <td className="text-orange-600">₹{item.item_discount?.toFixed(2)}</td>
+                          <td className="text-red-500">₹{item.order_discount?.toFixed(2)}</td>
                           <td>₹{item.cost_total_excl_gst?.toFixed(2)}</td>
                           <td>₹{item.cost_total_inc_gst?.toFixed(2)}</td>
                           <td>₹{item.selling_total_excl_gst?.toFixed(2)}</td>

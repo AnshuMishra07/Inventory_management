@@ -428,13 +428,15 @@ async def get_detailed_sales_report(
 
     # Query: SalesOrderItem joined with SalesOrder and Product
     results = db.query(
+        SalesOrder.id.label("order_id"),
         SalesOrder.order_date,
         SalesOrder.order_number,
+        SalesOrder.discount_amount.label("order_discount"),
         Product.name.label("product_name"),
         Product.cost_price.label("cost_price_unit"), # Current cost price
         SalesOrderItem.quantity,
         SalesOrderItem.unit_price.label("selling_price_unit"),
-        SalesOrderItem.discount,
+        SalesOrderItem.discount.label("item_discount"),
         SalesOrderItem.tax_rate,
         SalesOrderItem.tax_amount,
         SalesOrderItem.line_total
@@ -452,39 +454,44 @@ async def get_detailed_sales_report(
 
     report_data = []
     
-    total_profit_excl_gst = 0
-    total_profit_inc_gst = 0
+    total_line_profit_excl_gst = 0
+    total_line_profit_inc_gst = 0
     total_gst_liability = 0
+    
+    seen_orders = set()
+    total_order_discounts = 0
 
     for row in results:
+        # Track order level discount once per order
+        if row.order_id not in seen_orders:
+            total_order_discounts += float(row.order_discount or 0)
+            seen_orders.add(row.order_id)
+
         # Calculations
         qty = int(row.quantity or 0)
         
         # Cost Price
-        # Note: We are using current cost price.
         cost_unit_excl_gst = float(row.cost_price_unit or 0)
         cost_total_excl_gst = cost_unit_excl_gst * qty
         
-        # Calculate Cost Inc GST for display purposes (showing the implied tax value)
+        # Calculate Cost Inc GST for display purposes
         tax_multiplier = 1 + ((float(row.tax_rate or 18)) / 100.0)
         cost_total_inc_gst = cost_total_excl_gst * tax_multiplier
         
         # Selling (Revenue)
         selling_gross = (float(row.selling_price_unit or 0) * qty)
-        selling_total_excl_gst = selling_gross - float(row.discount or 0)
+        item_discount = float(row.item_discount or 0)
+        selling_total_excl_gst = selling_gross - item_discount
         
         gst_liability = float(row.tax_amount or 0)
         selling_total_inc_gst = selling_total_excl_gst + gst_liability
 
         # Profit
         profit_excl_gst = selling_total_excl_gst - cost_total_excl_gst
-        
-        # User Logic: Profit (Inc GST) = Selling (Inc GST) - Cost (Excl GST)
-        # This represents the total cash flow delta before output tax payment.
         profit_inc_gst = selling_total_inc_gst - cost_total_excl_gst
 
-        total_profit_excl_gst += profit_excl_gst
-        total_profit_inc_gst += profit_inc_gst
+        total_line_profit_excl_gst += profit_excl_gst
+        total_line_profit_inc_gst += profit_inc_gst
         total_gst_liability += gst_liability
 
         report_data.append({
@@ -492,6 +499,8 @@ async def get_detailed_sales_report(
             "order_number": row.order_number,
             "product_name": row.product_name,
             "quantity": qty,
+            "item_discount": item_discount,
+            "order_discount": float(row.order_discount or 0),
             "cost_total_excl_gst": cost_total_excl_gst,
             "cost_total_inc_gst": cost_total_inc_gst,
             "selling_total_excl_gst": selling_total_excl_gst,
@@ -501,13 +510,23 @@ async def get_detailed_sales_report(
             "profit_inc_gst": profit_inc_gst
         })
 
+    # Final Totals: Deduct order-level discounts from the summed line profits
+    final_profit_excl_gst = total_line_profit_excl_gst - total_order_discounts
+    final_profit_inc_gst = total_line_profit_inc_gst - total_order_discounts
+    
+    # Calculate sum of all discounts (line item + order level)
+    sum_line_item_discounts = sum(float(item['item_discount']) for item in report_data)
+    total_all_discounts = sum_line_item_discounts + total_order_discounts
+
     summary = {
         "period": {"start_date": start_date, "end_date": end_date},
         "items": report_data,
         "totals": {
-            "profit_excl_gst": total_profit_excl_gst,
-            "profit_inc_gst": total_profit_inc_gst,
-            "gst_liability": total_gst_liability
+            "profit_excl_gst": final_profit_excl_gst,
+            "profit_inc_gst": final_profit_inc_gst,
+            "gst_liability": total_gst_liability,
+            "order_discounts": total_order_discounts,
+            "total_all_discounts": total_all_discounts
         }
     }
 
@@ -534,6 +553,7 @@ def generate_detailed_sales_excel(data: dict) -> StreamingResponse:
     # Headers
     headers = [
         "Sale Date", "Order #", "Product Name", "Qty", 
+        "Item Disc.", "Order Disc.",
         "Cost (Excl GST)", "Cost (Inc GST)", 
         "Selling (Excl GST)", "Selling (Inc GST)", 
         "GST Liability", "Profit (Excl GST)", "Profit (Inc GST)"
@@ -558,19 +578,21 @@ def generate_detailed_sales_excel(data: dict) -> StreamingResponse:
             item['order_number'],
             item['product_name'],
             item['quantity'],
+            float(f"{item['item_discount']:.2f}"),
+            float(f"{item['order_discount']:.2f}"),
             float(f"{item['cost_total_excl_gst']:.2f}"),
             float(f"{item['cost_total_inc_gst']:.2f}"),
             float(f"{item['selling_total_excl_gst']:.2f}"),
             float(f"{item['selling_total_inc_gst']:.2f}"),
-            float(f"{item['gst_liability']:.2f}"),
-            float(f"{item['profit_excl_gst']:.2f}"),
-            float(f"{item['profit_inc_gst']:.2f}")
+            item['gst_liability'],
+            item['profit_excl_gst'],
+            item['profit_inc_gst']
         ])
 
     # Totals Row
     ws.append([])
     ws.append([
-        "TOTALS", "", "", "", "", "", "", "",
+        "TOTALS", "", "", "", "", "", "", "", "", "",
         float(f"{data['totals']['gst_liability']:.2f}"),
         float(f"{data['totals']['profit_excl_gst']:.2f}"),
         float(f"{data['totals']['profit_inc_gst']:.2f}")
