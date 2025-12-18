@@ -183,10 +183,10 @@ nano .env
 VITE_API_URL=http://54.123.45.67:8000
 CORS_ORIGINS=http://54.123.45.67
 
-# Keep the existing credentials
-MYSQL_ROOT_PASSWORD=inventory@1984
-MYSQL_PASSWORD=inventory@1984
-SECRET_KEY=inventory-management-secret-key-2024-production-change-me
+# Choose strong, unique passwords for production!
+MYSQL_ROOT_PASSWORD=your_secure_root_password
+MYSQL_PASSWORD=your_secure_db_user_password
+SECRET_KEY=generate_a_random_32_char_string
 ```
 
 Save and exit (`Ctrl+X`, `Y`, `Enter`)

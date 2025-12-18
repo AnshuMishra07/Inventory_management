@@ -6,10 +6,10 @@ services:
     container_name: inventory_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass123
-      MYSQL_DATABASE: inventory_management
-      MYSQL_USER: inventory_user
-      MYSQL_PASSWORD: inventory_pass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-inventory_management}
+      MYSQL_USER: ${MYSQL_USER:-inventory_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-inventory_pass}
     ports:
       - "3306:3306"
     volumes:
@@ -37,7 +37,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+pymysql://inventory_user:inventory_pass@mysql:3306/inventory_management
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-inventory_user}:${MYSQL_PASSWORD:-inventory_pass}@mysql:3306/${MYSQL_DATABASE:-inventory_management}
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./backend:/app
@@ -74,7 +74,7 @@ services:
       - PMA_HOST=mysql
       - PMA_PORT=3306
       - PMA_USER=root
-      - PMA_PASSWORD=rootpass123
+      - PMA_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpass123}
     depends_on:
       - mysql
 

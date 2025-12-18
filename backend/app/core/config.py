@@ -4,15 +4,17 @@ from typing import List
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "mysql+pymysql://root:password@localhost:3306/inventory_management"
+    DATABASE_URL: str = ""
     
     # JWT
-    SECRET_KEY: str = "your-secret-key-change-this"
+    SECRET_KEY: str = "change-this-to-a-secure-random-string"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
     # Application
-    DEBUG: bool = True
+    # Set DEBUG to False by default for safety. 
+    # Enable via environment variable for local development.
+    DEBUG: bool = False
     APP_NAME: str = "Inventory Management System"
     API_PREFIX: str = "/api"
     
