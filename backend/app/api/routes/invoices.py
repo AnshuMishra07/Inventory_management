@@ -222,8 +222,12 @@ async def download_invoice_pdf(
         p.drawRightString(540, y, f"-₹{order.discount_amount:.2f}")
         y -= 12
     
-    p.drawString(380, y, "Tax:")
-    p.drawRightString(540, y, f"₹{order.tax_amount:.2f}")
+    p.drawString(380, y, "CGST:")
+    p.drawRightString(540, y, f"₹{order.tax_amount / 2:.2f}")
+    y -= 12
+    
+    p.drawString(380, y, "SGST:")
+    p.drawRightString(540, y, f"₹{order.tax_amount / 2:.2f}")
     y -= 15
     
     p.setFont("Helvetica-Bold", 12)

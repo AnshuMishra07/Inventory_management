@@ -11,6 +11,7 @@ interface OrderItem {
     quantity: number;
     unit_price: number;
     discount: number;
+    tax_rate?: number; // Include tax rate to persist to backend
 }
 
 const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) => {
@@ -29,7 +30,8 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
         product_id: '',
         quantity: 1,
         unit_price: 0,
-        discount: 0
+        discount: 0,
+        tax_rate: 18 // Default
     }]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -44,7 +46,7 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
             let totalTax = 0;
             items.forEach(item => {
                 const product = products.find(p => p.id === item.product_id);
-                const taxRate = product?.tax_rate || 18; // Default to 18% if not found
+                const taxRate = product?.tax_rate ?? 18; // Default to 18% if not found
 
                 const itemSubtotal = (item.quantity * item.unit_price) - item.discount;
                 if (itemSubtotal > 0) {
@@ -80,7 +82,7 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
     };
 
     const addItem = () => {
-        setItems([...items, { product_id: '', quantity: 1, unit_price: 0, discount: 0 }]);
+        setItems([...items, { product_id: '', quantity: 1, unit_price: 0, discount: 0, tax_rate: 18 }]);
     };
 
     const removeItem = (index: number) => {
@@ -96,6 +98,7 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
             const product = products.find(p => p.id === value);
             if (product) {
                 newItems[index].unit_price = product.selling_price;
+                newItems[index].tax_rate = product.tax_rate ?? 18;
             }
         }
 
@@ -121,7 +124,10 @@ const SalesOrderForm: React.FC<SalesOrderFormProps> = ({ onClose, onSuccess }) =
         try {
             const orderData = {
                 ...formData,
-                items: items.filter(item => item.product_id && item.quantity > 0)
+                items: items.filter(item => item.product_id && item.quantity > 0).map(item => ({
+                    ...item,
+                    tax_rate: item.tax_rate ?? 18 // Ensure it's sent
+                }))
             };
 
             if (orderData.items.length === 0) {

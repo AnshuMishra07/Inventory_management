@@ -194,7 +194,7 @@ const InvoicePage: React.FC = () => {
                                 <td style={{ padding: '0.75rem' }}>Item #{index + 1}</td>
                                 <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.quantity}</td>
                                 <td style={{ padding: '0.75rem', textAlign: 'right' }}>₹{item.unit_price.toFixed(2)}</td>
-                                <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.tax_rate}%</td>
+                                <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.tax_rate ?? 18}%</td>
                                 <td style={{ padding: '0.75rem', textAlign: 'right' }}>₹{item.line_total.toFixed(2)}</td>
                             </tr>
                         ))}
@@ -215,8 +215,12 @@ const InvoicePage: React.FC = () => {
                             </div>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e5e7eb' }}>
-                            <span>Tax (GST):</span>
-                            <span>₹{invoice.tax_amount.toFixed(2)}</span>
+                            <span>CGST:</span>
+                            <span>₹{(invoice.tax_amount / 2).toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                            <span>SGST:</span>
+                            <span>₹{(invoice.tax_amount / 2).toFixed(2)}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', fontSize: '1.25rem', fontWeight: 'bold', borderTop: '2px solid #374151', marginTop: '0.5rem' }}>
                             <span>Total:</span>

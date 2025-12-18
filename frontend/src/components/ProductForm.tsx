@@ -18,6 +18,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, onSuccess }) => {
         reorder_quantity: 50,
         cost_price: 0,
         selling_price: 0,
+        cost_price_inc_tax: 0,
+        selling_price_inc_tax: 0,
         tax_rate: 18.0,  // Default 18% GST
         supplier_id: ''
     });
@@ -35,10 +37,20 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, onSuccess }) => {
             onClose();
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Failed to create product');
-        } finally {
             setLoading(false);
         }
     };
+
+    // Auto-calculate GST inclusive prices
+    React.useEffect(() => {
+        const taxMultiplier = 1 + (formData.tax_rate / 100);
+
+        setFormData(prev => ({
+            ...prev,
+            cost_price_inc_tax: parseFloat((prev.cost_price * taxMultiplier).toFixed(2)),
+            selling_price_inc_tax: parseFloat((prev.selling_price * taxMultiplier).toFixed(2))
+        }));
+    }, [formData.cost_price, formData.selling_price, formData.tax_rate]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -185,7 +197,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, onSuccess }) => {
                                 placeholder="0.00"
                             />
                         </div>
+                        <div>
+                            <label className="label">Cost Price (Inc. GST)</label>
+                            <input
+                                type="number"
+                                className="input bg-gray-100"
+                                value={formData.cost_price_inc_tax}
+                                readOnly
+                            />
+                        </div>
+                    </div>
 
+                    <div className="grid grid-cols-2 gap-4" style={{ marginTop: '1rem' }}>
                         <div>
                             <label className="label">Selling Price *</label>
                             <input
@@ -198,6 +221,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, onSuccess }) => {
                                 step="0.01"
                                 required
                                 placeholder="0.00"
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Selling Price (Inc. GST)</label>
+                            <input
+                                type="number"
+                                className="input bg-gray-100"
+                                value={formData.selling_price_inc_tax}
+                                readOnly
                             />
                         </div>
                     </div>

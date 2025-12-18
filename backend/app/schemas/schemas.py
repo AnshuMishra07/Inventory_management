@@ -131,6 +131,8 @@ class ProductBase(BaseModel):
     cost_price: float = 0.0
     selling_price: float = 0.0
     tax_rate: float = 18.0  # GST percentage
+    cost_price_inc_tax: float = 0.0  # Cost price including GST
+    selling_price_inc_tax: float = 0.0  # Selling price including GST
     is_tax_inclusive: bool = False  # Tax-inclusive pricing
     supplier_id: Optional[str] = None
 
@@ -150,6 +152,8 @@ class ProductUpdate(BaseModel):
     cost_price: Optional[float] = None
     selling_price: Optional[float] = None
     tax_rate: Optional[float] = None
+    cost_price_inc_tax: Optional[float] = None
+    selling_price_inc_tax: Optional[float] = None
     is_tax_inclusive: Optional[bool] = None
     supplier_id: Optional[str] = None
 
@@ -472,3 +476,31 @@ class InvoiceResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+# Detailed Sales Report Schema
+class DetailedSalesItem(BaseModel):
+    sale_date: str
+    order_number: str
+    product_name: str
+    quantity: int
+    cost_total_excl_gst: float
+    cost_total_inc_gst: float
+    selling_total_excl_gst: float
+    selling_total_inc_gst: float
+    gst_liability: float
+    profit_excl_gst: float
+    profit_inc_gst: float
+
+class DetailedSalesReportTotals(BaseModel):
+    profit_excl_gst: float
+    profit_inc_gst: float
+    gst_liability: float
+
+class DetailedSalesReportPeriod(BaseModel):
+    start_date: str
+    end_date: str
+
+class DetailedSalesReport(BaseModel):
+    period: DetailedSalesReportPeriod
+    items: List[DetailedSalesItem]
+    totals: DetailedSalesReportTotals

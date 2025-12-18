@@ -170,6 +170,8 @@ class Product(Base):
     cost_price = Column(Float, default=0.0)
     selling_price = Column(Float, default=0.0)
     tax_rate = Column(Float, default=18.0)  # GST percentage (0, 5, 12, 18, 28)
+    cost_price_inc_tax = Column(Float, default=0.0)  # Cost price including GST
+    selling_price_inc_tax = Column(Float, default=0.0)  # Selling price including GST
     is_tax_inclusive = Column(Boolean, default=False)  # Whether price includes tax
     supplier_id = Column(String(36), ForeignKey("suppliers.id"), nullable=True)
     image_url = Column(String(500), nullable=True)

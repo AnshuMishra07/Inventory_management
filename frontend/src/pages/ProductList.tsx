@@ -9,6 +9,8 @@ interface Product {
   barcode?: string;
   cost_price: number;
   selling_price: number;
+  cost_price_inc_tax: number;
+  selling_price_inc_tax: number;
   reorder_point: number;
   created_at: string;
 }
@@ -27,7 +29,9 @@ const ProductList: React.FC = () => {
     cost_price: 0,
     selling_price: 0,
     tax_rate: 18,
-    reorder_point: 0
+    reorder_point: 0,
+    cost_price_inc_tax: 0,
+    selling_price_inc_tax: 0
   });
   const [editLoading, setEditLoading] = useState(false);
 
@@ -43,6 +47,18 @@ const ProductList: React.FC = () => {
     }
   };
 
+
+  // Add auto-calculation calculation effect for edit form
+  useEffect(() => {
+    if (showEditModal) {
+      const taxMultiplier = 1 + (editFormData.tax_rate / 100);
+      setEditFormData(prev => ({
+        ...prev,
+        cost_price_inc_tax: parseFloat((prev.cost_price * taxMultiplier).toFixed(2)),
+        selling_price_inc_tax: parseFloat((prev.selling_price * taxMultiplier).toFixed(2))
+      }));
+    }
+  }, [editFormData.cost_price, editFormData.selling_price, editFormData.tax_rate, showEditModal]);
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -73,7 +89,9 @@ const ProductList: React.FC = () => {
       cost_price: product.cost_price,
       selling_price: product.selling_price,
       tax_rate: (product as any).tax_rate || 18,
-      reorder_point: product.reorder_point
+      reorder_point: product.reorder_point,
+      cost_price_inc_tax: product.cost_price_inc_tax,
+      selling_price_inc_tax: product.selling_price_inc_tax
     });
     setShowEditModal(true);
   };
@@ -147,7 +165,9 @@ const ProductList: React.FC = () => {
                 <th>Name</th>
                 <th>Barcode</th>
                 <th>Cost Price</th>
+                <th>Cost (Inc. GST)</th>
                 <th>Selling Price</th>
+                <th>Selling (Inc. GST)</th>
                 <th>Reorder Point</th>
                 <th>Actions</th>
               </tr>
@@ -169,7 +189,9 @@ const ProductList: React.FC = () => {
                     <td style={{ fontWeight: 500 }}>{product.name}</td>
                     <td>{product.barcode || '-'}</td>
                     <td>₹{product.cost_price.toFixed(2)}</td>
+                    <td>₹{product.cost_price_inc_tax?.toFixed(2) || (product.cost_price * (1 + ((product as any).tax_rate || 18) / 100)).toFixed(2)}</td>
                     <td>₹{product.selling_price.toFixed(2)}</td>
+                    <td>₹{product.selling_price_inc_tax?.toFixed(2) || (product.selling_price * (1 + ((product as any).tax_rate || 18) / 100)).toFixed(2)}</td>
                     <td>
                       <span className="badge badge-info">{product.reorder_point}</span>
                     </td>
@@ -298,6 +320,28 @@ const ProductList: React.FC = () => {
                     value={editFormData.selling_price}
                     onChange={(e) => setEditFormData({ ...editFormData, selling_price: parseFloat(e.target.value) })}
                     required
+                  />
+                </div>
+              </div>
+
+              {/* New GST Fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label className="label">Cost (Inc. GST)</label>
+                  <input
+                    type="number"
+                    className="input bg-gray-100"
+                    value={editFormData.cost_price_inc_tax}
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <label className="label">Selling (Inc. GST)</label>
+                  <input
+                    type="number"
+                    className="input bg-gray-100"
+                    value={editFormData.selling_price_inc_tax}
+                    readOnly
                   />
                 </div>
               </div>

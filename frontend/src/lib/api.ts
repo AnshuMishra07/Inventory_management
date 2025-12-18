@@ -85,8 +85,8 @@ export const reportsAPI = {
   salesSummary: (startDate: string, endDate: string) => apiClient.get('/reports/sales-summary', { params: { start_date: startDate, end_date: endDate } }),
   productPerformance: (startDate: string, endDate: string) => apiClient.get('/reports/product-performance', { params: { start_date: startDate, end_date: endDate } }),
   lowStock: () => apiClient.get('/reports/low-stock-summary'),
-  getGSTSummary: (startDate: string, endDate: string) => 
-    apiClient.get('/reports/gst-summary', { 
+  getGSTSummary: (startDate: string, endDate: string) =>
+    apiClient.get('/reports/gst-summary', {
       params: { start_date: startDate, end_date: endDate }
     }),
   downloadGSTCSV: (startDate: string, endDate: string) =>
@@ -96,6 +96,15 @@ export const reportsAPI = {
     }),
   downloadGSTExcel: (startDate: string, endDate: string) =>
     apiClient.get('/reports/gst-summary', {
+      params: { start_date: startDate, end_date: endDate, format: 'excel' },
+      responseType: 'blob'
+    }),
+  getDetailedSalesReport: (startDate: string, endDate: string) =>
+    apiClient.get('/reports/detailed-sales-report', {
+      params: { start_date: startDate, end_date: endDate }
+    }),
+  downloadDetailedSalesReport: (startDate: string, endDate: string) =>
+    apiClient.get('/reports/detailed-sales-report', {
       params: { start_date: startDate, end_date: endDate, format: 'excel' },
       responseType: 'blob'
     })
@@ -108,4 +117,3 @@ export const warehousesAPI = {
   update: (id: string, data: any) => apiClient.put(`/warehouses/${id}`, data),
   delete: (id: string) => apiClient.delete(`/warehouses/${id}`)
 };
-

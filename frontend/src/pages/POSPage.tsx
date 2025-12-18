@@ -133,7 +133,7 @@ const POSPage: React.FC = () => {
         // Calculate total GST from all items
         return cart.reduce((sum, item) => {
             const itemSubtotal = (item.quantity * item.unit_price) - item.discount;
-            const itemTax = itemSubtotal * ((item.tax_rate || 18) / 100);
+            const itemTax = itemSubtotal * ((item.tax_rate ?? 18) / 100);
             return sum + itemTax;
         }, 0);
     };
@@ -158,14 +158,14 @@ const POSPage: React.FC = () => {
             // Prepare order items with tax calculations
             const items = cart.map(item => {
                 const itemSubtotal = (item.quantity * item.unit_price) - item.discount;
-                const tax_amount = itemSubtotal * ((item.tax_rate || 18) / 100);
+                const tax_amount = itemSubtotal * ((item.tax_rate ?? 18) / 100);
 
                 return {
                     product_id: item.product_id,
                     quantity: item.quantity,
                     unit_price: item.unit_price,
                     discount: item.discount,
-                    tax_rate: item.tax_rate || 18.0,
+                    tax_rate: item.tax_rate ?? 18.0,
                     tax_amount: tax_amount
                 };
             });
@@ -358,10 +358,10 @@ const POSPage: React.FC = () => {
                                     </div>
 
                                     <div style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#6b7280' }}>
-                                        GST: {item.tax_rate || 18}% | Tax: ₹{(((item.quantity * item.unit_price) - item.discount) * ((item.tax_rate || 18) / 100)).toFixed(2)}
+                                        GST: {item.tax_rate ?? 18}% | Tax: ₹{(((item.quantity * item.unit_price) - item.discount) * ((item.tax_rate ?? 18) / 100)).toFixed(2)}
                                     </div>
                                     <div style={{ marginTop: '0.5rem', textAlign: 'right', fontSize: '1.125rem', fontWeight: 700 }}>
-                                        Total: ₹{(((item.quantity * item.unit_price) - item.discount) * (1 + (item.tax_rate || 18) / 100)).toFixed(2)}
+                                        Total: ₹{(((item.quantity * item.unit_price) - item.discount) * (1 + (item.tax_rate ?? 18) / 100)).toFixed(2)}
                                     </div>
                                 </div>
                             ))}

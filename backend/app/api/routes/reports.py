@@ -16,7 +16,9 @@ from app.models.models import (
 from app.schemas.schemas import (
     InventoryValueReport,
     SalesSummaryReport,
-    ProductPerformance
+    SalesSummaryReport,
+    ProductPerformance,
+    DetailedSalesReport
 )
 
 router = APIRouter()
@@ -402,4 +404,197 @@ def generate_gst_excel(report_data: dict) -> StreamingResponse:
         iter([output.getvalue()]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=gst_report_{report_data['period']['start_date']}_to_{report_data['period']['end_date']}.xlsx"}
+    )
+
+@router.get("/detailed-sales-report")
+async def get_detailed_sales_report(
+    start_date: str,
+    end_date: str,
+    format: str = "json",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate Detailed Sales Report with Profit & Liability
+    """
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date) + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format"
+        )
+
+    # Query: SalesOrderItem joined with SalesOrder and Product
+    results = db.query(
+        SalesOrder.order_date,
+        SalesOrder.order_number,
+        Product.name.label("product_name"),
+        Product.cost_price.label("cost_price_unit"), # Current cost price
+        SalesOrderItem.quantity,
+        SalesOrderItem.unit_price.label("selling_price_unit"),
+        SalesOrderItem.discount,
+        SalesOrderItem.tax_rate,
+        SalesOrderItem.tax_amount,
+        SalesOrderItem.line_total
+    ).join(
+        SalesOrder, SalesOrderItem.sales_order_id == SalesOrder.id
+    ).join(
+        Product, SalesOrderItem.product_id == Product.id
+    ).filter(
+        SalesOrder.order_date >= start_dt,
+        SalesOrder.order_date < end_dt,
+        SalesOrder.status != OrderStatus.CANCELLED
+    ).order_by(
+        SalesOrder.order_date.desc()
+    ).all()
+
+    report_data = []
+    
+    total_profit_excl_gst = 0
+    total_profit_inc_gst = 0
+    total_gst_liability = 0
+
+    for row in results:
+        # Calculations
+        qty = int(row.quantity or 0)
+        
+        # Cost Price
+        # Note: We are using current cost price.
+        cost_unit_excl_gst = float(row.cost_price_unit or 0)
+        cost_total_excl_gst = cost_unit_excl_gst * qty
+        
+        # Calculate Cost Inc GST for display purposes (showing the implied tax value)
+        tax_multiplier = 1 + ((float(row.tax_rate or 18)) / 100.0)
+        cost_total_inc_gst = cost_total_excl_gst * tax_multiplier
+        
+        # Selling (Revenue)
+        selling_gross = (float(row.selling_price_unit or 0) * qty)
+        selling_total_excl_gst = selling_gross - float(row.discount or 0)
+        
+        gst_liability = float(row.tax_amount or 0)
+        selling_total_inc_gst = selling_total_excl_gst + gst_liability
+
+        # Profit
+        profit_excl_gst = selling_total_excl_gst - cost_total_excl_gst
+        
+        # User Logic: Profit (Inc GST) = Selling (Inc GST) - Cost (Excl GST)
+        # This represents the total cash flow delta before output tax payment.
+        profit_inc_gst = selling_total_inc_gst - cost_total_excl_gst
+
+        total_profit_excl_gst += profit_excl_gst
+        total_profit_inc_gst += profit_inc_gst
+        total_gst_liability += gst_liability
+
+        report_data.append({
+            "sale_date": row.order_date.strftime("%Y-%m-%d"),
+            "order_number": row.order_number,
+            "product_name": row.product_name,
+            "quantity": qty,
+            "cost_total_excl_gst": cost_total_excl_gst,
+            "cost_total_inc_gst": cost_total_inc_gst,
+            "selling_total_excl_gst": selling_total_excl_gst,
+            "selling_total_inc_gst": selling_total_inc_gst,
+            "gst_liability": gst_liability,
+            "profit_excl_gst": profit_excl_gst,
+            "profit_inc_gst": profit_inc_gst
+        })
+
+    summary = {
+        "period": {"start_date": start_date, "end_date": end_date},
+        "items": report_data,
+        "totals": {
+            "profit_excl_gst": total_profit_excl_gst,
+            "profit_inc_gst": total_profit_inc_gst,
+            "gst_liability": total_gst_liability
+        }
+    }
+
+    if format == "excel":
+        return generate_detailed_sales_excel(summary)
+    
+    return summary
+
+
+def generate_detailed_sales_excel(data: dict) -> StreamingResponse:
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="openpyxl not installed"
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Detailed Sales"
+
+    # Headers
+    headers = [
+        "Sale Date", "Order #", "Product Name", "Qty", 
+        "Cost (Excl GST)", "Cost (Inc GST)", 
+        "Selling (Excl GST)", "Selling (Inc GST)", 
+        "GST Liability", "Profit (Excl GST)", "Profit (Inc GST)"
+    ]
+    
+    ws.append(["Detailed Sales Report", f"{data['period']['start_date']} to {data['period']['end_date']}"])
+    ws.append([]) # spacer
+    ws.append(headers)
+
+    # Style Header
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col_num)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    # Data
+    for item in data['items']:
+        ws.append([
+            item['sale_date'],
+            item['order_number'],
+            item['product_name'],
+            item['quantity'],
+            float(f"{item['cost_total_excl_gst']:.2f}"),
+            float(f"{item['cost_total_inc_gst']:.2f}"),
+            float(f"{item['selling_total_excl_gst']:.2f}"),
+            float(f"{item['selling_total_inc_gst']:.2f}"),
+            float(f"{item['gst_liability']:.2f}"),
+            float(f"{item['profit_excl_gst']:.2f}"),
+            float(f"{item['profit_inc_gst']:.2f}")
+        ])
+
+    # Totals Row
+    ws.append([])
+    ws.append([
+        "TOTALS", "", "", "", "", "", "", "",
+        float(f"{data['totals']['gst_liability']:.2f}"),
+        float(f"{data['totals']['profit_excl_gst']:.2f}"),
+        float(f"{data['totals']['profit_inc_gst']:.2f}")
+    ])
+    
+    # Auto-width
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column].width = adjusted_width
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=detailed_sales_report_{data['period']['start_date']}_to_{data['period']['end_date']}.xlsx"}
     )

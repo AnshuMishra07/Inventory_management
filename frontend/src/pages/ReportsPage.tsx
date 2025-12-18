@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { reportsAPI } from '../lib/api';
 
 const ReportsPage: React.FC = () => {
-  const [activeReport, setActiveReport] = useState<'inventory' | 'sales' | 'performance' | 'lowstock' | 'gst'>('inventory');
+  const [activeReport, setActiveReport] = useState<'inventory' | 'sales' | 'performance' | 'lowstock' | 'gst' | 'detailed'>('inventory');
   const [inventoryReport, setInventoryReport] = useState<any>(null);
   const [salesReport, setSalesReport] = useState<any>(null);
   const [performanceReport, setPerformanceReport] = useState<any[]>([]);
@@ -13,6 +13,7 @@ const ReportsPage: React.FC = () => {
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   });
+  const [detailedSalesReport, setDetailedSalesReport] = useState<any>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('30');
   const [selectedWarehouse, setSelectedWarehouse] = useState<any>(null);
   const [warehouseProducts, setWarehouseProducts] = useState<any[]>([]);
@@ -123,6 +124,35 @@ const ReportsPage: React.FC = () => {
     }
   };
 
+  const fetchDetailedSalesReport = async () => {
+    setLoading(true);
+    try {
+      const response = await reportsAPI.getDetailedSalesReport(dateRange.startDate, dateRange.endDate);
+      setDetailedSalesReport(response.data);
+    } catch (error) {
+      console.error('Failed to fetch detailed sales report:', error);
+      alert('Failed to load detailed sales report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadDetailedSalesExcel = async () => {
+    try {
+      const response = await reportsAPI.downloadDetailedSalesReport(dateRange.startDate, dateRange.endDate);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `detailed_sales_report_${dateRange.startDate}_to_${dateRange.endDate}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Failed to download Excel:', error);
+      alert('Failed to download Excel');
+    }
+  };
+
   const handlePeriodChange = (period: string) => {
     setSelectedPeriod(period);
     const endDate = new Date().toISOString().split('T')[0];
@@ -183,6 +213,9 @@ const ReportsPage: React.FC = () => {
       case 'gst':
         fetchGSTReport();
         break;
+      case 'detailed':
+        fetchDetailedSalesReport();
+        break;
     }
   };
 
@@ -224,10 +257,10 @@ const ReportsPage: React.FC = () => {
       </div>
 
       {/* Date Range Filter (for sales, performance, and GST) */}
-      {(activeReport === 'sales' || activeReport === 'performance' || activeReport === 'gst') && (
+      {(activeReport === 'sales' || activeReport === 'performance' || activeReport === 'gst' || activeReport === 'detailed') && (
         <div className="card mb-4">
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-            {activeReport === 'gst' && (
+            {(activeReport === 'gst' || activeReport === 'detailed') && (
               <div style={{ flex: 1 }}>
                 <label className="label">Period</label>
                 <select
@@ -243,7 +276,7 @@ const ReportsPage: React.FC = () => {
                 </select>
               </div>
             )}
-            {(selectedPeriod === 'custom' || activeReport !== 'gst') && (
+            {(selectedPeriod === 'custom' || (activeReport !== 'gst' && activeReport !== 'detailed')) && (
               <>
                 <div style={{ flex: 1 }}>
                   <label className="label">Start Date</label>
@@ -349,7 +382,7 @@ const ReportsPage: React.FC = () => {
           {/* Sales Summary Report */}
           {activeReport === 'sales' && salesReport && (
             <div>
-              <div className="grid grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-5 gap-4 mb-4">
                 <div className="card" style={{ backgroundColor: '#f0fdf4' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>
                     ₹{salesReport.total_revenue?.toFixed(2) || '0.00'}
@@ -374,7 +407,31 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Avg Order Value</div>
                 </div>
+                {/* Detailed Sales Dashboard Tile */}
+                <div
+                  className="card cursor-pointer hover:shadow-lg transition-shadow"
+                  style={{
+                    backgroundColor: 'white',
+                    border: '2px solid #e0e7ff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    padding: '1rem'
+                  }}
+                  onClick={() => {
+                    setActiveReport('detailed');
+                    fetchDetailedSalesReport();
+                  }}
+                >
+                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📈</div>
+                  <div style={{ fontWeight: 600, color: '#4f46e5', fontSize: '0.875rem' }}>Detailed Sales</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>View Report ➔</div>
+                </div>
               </div>
+
+
 
               <div className="card">
                 <h3 className="font-semibold mb-2">Sales Period</h3>
@@ -630,91 +687,180 @@ const ReportsPage: React.FC = () => {
               </table>
             </div>
           )}
+
+          {/* Detailed Sales Report */}
+          {activeReport === 'detailed' && detailedSalesReport && (
+            <div>
+              <div className="mb-4">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setActiveReport('sales')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  ← Back to Sales Overview
+                </button>
+              </div>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="card" style={{ backgroundColor: '#fff7ed' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#c2410c' }}>
+                    ₹{detailedSalesReport.totals?.gst_liability?.toFixed(2) || '0.00'}
+                  </div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total GST Liability</div>
+                </div>
+                <div className="card" style={{ backgroundColor: '#ecfccb' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#65a30d' }}>
+                    ₹{detailedSalesReport.totals?.profit_excl_gst?.toFixed(2) || '0.00'}
+                  </div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total Profit (Excl. GST)</div>
+                </div>
+                <div className="card" style={{ backgroundColor: '#f0fdf4' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#15803d' }}>
+                    ₹{detailedSalesReport.totals?.profit_inc_gst?.toFixed(2) || '0.00'}
+                  </div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total Profit (Inc. GST)</div>
+                </div>
+              </div>
+
+              {/* Download Button */}
+              <div className="card mb-4" style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary" onClick={downloadDetailedSalesExcel} style={{ padding: '0.5rem 1rem' }}>
+                  📊 Download Excel
+                </button>
+              </div>
+
+              {/* Detailed Table */}
+              <div className="card" style={{ overflowX: 'auto' }}>
+                <h3 className="font-semibold mb-4">Sales Details</h3>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Order #</th>
+                      <th>Product</th>
+                      <th>Qty</th>
+                      <th>Cost (Excl GST)</th>
+                      <th>Cost (Inc GST)</th>
+                      <th>Selling (Excl GST)</th>
+                      <th>Selling (Inc GST)</th>
+                      <th>GST Liability</th>
+                      <th>Profit (Excl GST)</th>
+                      <th>Profit (Inc GST)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailedSalesReport.items?.length === 0 ? (
+                      <tr><td colSpan={11} className="text-center p-4">No sales found</td></tr>
+                    ) : (
+                      detailedSalesReport.items?.map((item: any) => (
+                        <tr key={item.order_number + item.product_name}>
+                          <td>{item.sale_date}</td>
+                          <td>{item.order_number}</td>
+                          <td style={{ fontWeight: 500 }}>{item.product_name}</td>
+                          <td>{item.quantity}</td>
+                          <td>₹{item.cost_total_excl_gst?.toFixed(2)}</td>
+                          <td>₹{item.cost_total_inc_gst?.toFixed(2)}</td>
+                          <td>₹{item.selling_total_excl_gst?.toFixed(2)}</td>
+                          <td>₹{item.selling_total_inc_gst?.toFixed(2)}</td>
+                          <td className="text-red-600 font-semibold">₹{item.gst_liability?.toFixed(2)}</td>
+                          <td className="text-green-600">₹{item.profit_excl_gst?.toFixed(2)}</td>
+                          <td className="text-green-700 font-bold">₹{item.profit_inc_gst?.toFixed(2)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
-      )}
+      )
+      }
 
       {/* Warehouse Products Modal */}
-      {selectedWarehouse && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          }}
-          onClick={() => setSelectedWarehouse(null)}
-        >
+      {
+        selectedWarehouse && (
           <div
-            className="card"
             style={{
-              maxWidth: '900px',
-              width: '90%',
-              maxHeight: '80vh',
-              overflow: 'auto',
-              margin: '2rem'
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setSelectedWarehouse(null)}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 className="text-xl font-bold">
-                Products in {selectedWarehouse.name}
-              </h2>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setSelectedWarehouse(null)}
-                style={{ padding: '0.5rem 1rem' }}
-              >
-                ✕ Close
-              </button>
+            <div
+              className="card"
+              style={{
+                maxWidth: '900px',
+                width: '90%',
+                maxHeight: '80vh',
+                overflow: 'auto',
+                margin: '2rem'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 className="text-xl font-bold">
+                  Products in {selectedWarehouse.name}
+                </h2>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setSelectedWarehouse(null)}
+                  style={{ padding: '0.5rem 1rem' }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {warehouseProducts.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                  No products found in this warehouse
+                </p>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>SKU</th>
+                      <th>Available</th>
+                      <th>Reserved</th>
+                      <th>Unit Value</th>
+                      <th>Total Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {warehouseProducts.map((item: any) => {
+                      const unitPrice = item.product_cost_price || item.product_selling_price || 0;
+                      const totalValue = (item.quantity_on_hand || 0) * unitPrice;
+
+                      return (
+                        <tr key={item.id}>
+                          <td style={{ fontWeight: 600 }}>{item.product_name || 'N/A'}</td>
+                          <td>{item.product_sku || 'N/A'}</td>
+                          <td>{item.quantity_on_hand || 0}</td>
+                          <td>{item.quantity_reserved || 0}</td>
+                          <td>₹{unitPrice.toFixed(2)}</td>
+                          <td>
+                            <strong>₹{totalValue.toFixed(2)}</strong>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
-
-            {warehouseProducts.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
-                No products found in this warehouse
-              </p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>SKU</th>
-                    <th>Available</th>
-                    <th>Reserved</th>
-                    <th>Unit Value</th>
-                    <th>Total Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {warehouseProducts.map((item: any) => {
-                    const unitPrice = item.product_cost_price || item.product_selling_price || 0;
-                    const totalValue = (item.quantity_on_hand || 0) * unitPrice;
-
-                    return (
-                      <tr key={item.id}>
-                        <td style={{ fontWeight: 600 }}>{item.product_name || 'N/A'}</td>
-                        <td>{item.product_sku || 'N/A'}</td>
-                        <td>{item.quantity_on_hand || 0}</td>
-                        <td>{item.quantity_reserved || 0}</td>
-                        <td>₹{unitPrice.toFixed(2)}</td>
-                        <td>
-                          <strong>₹{totalValue.toFixed(2)}</strong>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 
