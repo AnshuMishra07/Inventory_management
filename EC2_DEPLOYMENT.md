@@ -282,6 +282,17 @@ cd ~/apps/Inventory_management/deployment
 ./backup.sh
 ```
 
+### Reset Database (Destructive)
+
+> [!CAUTION]
+> This will PERMANENTLY DELETE all data and seed a fresh admin user and warehouse.
+
+```bash
+cd ~/apps/Inventory_management/deployment
+sudo docker-compose -f docker-compose.prod.yml exec -it backend python db_reset.py
+```
+
+
 ---
 
 ## Cost Management
