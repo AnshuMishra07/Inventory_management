@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { reportsAPI } from '../lib/api';
 
 const ReportsPage: React.FC = () => {
-  const [activeReport, setActiveReport] = useState<'inventory' | 'sales' | 'performance' | 'lowstock' | 'gst' | 'detailed'>('inventory');
+  const [activeReport, setActiveReport] = useState<'inventory' | 'sales' | 'performance' | 'lowstock' | 'gst' | 'detailed' | 'stock'>('inventory');
   const [inventoryReport, setInventoryReport] = useState<any>(null);
   const [salesReport, setSalesReport] = useState<any>(null);
   const [performanceReport, setPerformanceReport] = useState<any[]>([]);
@@ -14,6 +14,8 @@ const ReportsPage: React.FC = () => {
     endDate: new Date().toISOString().split('T')[0]
   });
   const [detailedSalesReport, setDetailedSalesReport] = useState<any>(null);
+  const [stockInventoryReport, setStockInventoryReport] = useState<any>(null);
+  const [snapshotDate, setSnapshotDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedPeriod, setSelectedPeriod] = useState('30');
   const [selectedWarehouse, setSelectedWarehouse] = useState<any>(null);
   const [warehouseProducts, setWarehouseProducts] = useState<any[]>([]);
@@ -153,6 +155,35 @@ const ReportsPage: React.FC = () => {
     }
   };
 
+  const fetchStockInventoryReport = async () => {
+    setLoading(true);
+    try {
+      const response = await reportsAPI.getStockInventoryReport(snapshotDate);
+      setStockInventoryReport(response.data);
+    } catch (error) {
+      console.error('Failed to fetch stock inventory report:', error);
+      alert('Failed to load stock inventory report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadStockInventoryExcel = async () => {
+    try {
+      const response = await reportsAPI.downloadStockInventoryExcel(snapshotDate);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `stock_inventory_${snapshotDate}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Failed to download Excel:', error);
+      alert('Failed to download Excel');
+    }
+  };
+
   const handlePeriodChange = (period: string) => {
     setSelectedPeriod(period);
     const endDate = new Date().toISOString().split('T')[0];
@@ -216,6 +247,9 @@ const ReportsPage: React.FC = () => {
       case 'detailed':
         fetchDetailedSalesReport();
         break;
+      case 'stock':
+        fetchStockInventoryReport();
+        break;
     }
   };
 
@@ -229,9 +263,10 @@ const ReportsPage: React.FC = () => {
 
       {/* Report Type Tabs */}
       <div className="card mb-4" style={{ padding: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', borderBottom: '1px solid #e5e7eb' }}>
           {[
             { key: 'inventory', label: '📊 Inventory' },
+            { key: 'stock', label: '📦 Stock Report' },
             { key: 'sales', label: '💰 Sales' },
             { key: 'performance', label: '⭐ Performance' },
             { key: 'lowstock', label: '⚠️ Low Stock' },
@@ -300,6 +335,26 @@ const ReportsPage: React.FC = () => {
             )}
             <button className="btn btn-primary" onClick={handleGenerateReport}>
               Generate Report
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Snapshot Date Filter (for stock inventory) */}
+      {activeReport === 'stock' && (
+        <div className="card mb-4">
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label className="label">Snapshot Date</label>
+              <input
+                type="date"
+                className="input"
+                value={snapshotDate}
+                onChange={(e) => setSnapshotDate(e.target.value)}
+              />
+            </div>
+            <button className="btn btn-primary" onClick={fetchStockInventoryReport}>
+              Refresh Stock
             </button>
           </div>
         </div>
@@ -786,6 +841,74 @@ const ReportsPage: React.FC = () => {
                           <td className="text-red-600 font-semibold">₹{item.gst_liability?.toFixed(2)}</td>
                           <td className="text-green-600">₹{item.profit_excl_gst?.toFixed(2)}</td>
                           <td className="text-green-700 font-bold">₹{item.profit_inc_gst?.toFixed(2)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Stock Inventory Report */}
+          {activeReport === 'stock' && stockInventoryReport && (
+            <div>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="card" style={{ backgroundColor: '#f0f9ff' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0ea5e9' }}>
+                    {stockInventoryReport.totals?.total_quantity || 0}
+                  </div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total Units on Hand</div>
+                </div>
+                <div className="card" style={{ backgroundColor: '#f0fdf4' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#16a34a' }}>
+                    ₹{stockInventoryReport.totals?.total_valuation?.toFixed(2) || '0.00'}
+                  </div>
+                  <div style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Total Inventory Value</div>
+                </div>
+              </div>
+
+              {/* Download Button */}
+              <div className="card mb-4" style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                  {stockInventoryReport.is_real_time ? '⚡ Showing Real-time stock' : '📅 Showing Historical stock'}
+                </span>
+                <button className="btn btn-primary" onClick={downloadStockInventoryExcel} style={{ padding: '0.5rem 1rem' }}>
+                  📊 Download Excel
+                </button>
+              </div>
+
+              {/* Table */}
+              <div className="card" style={{ overflowX: 'auto' }}>
+                <h3 className="font-semibold mb-4">Stock Breakdown</h3>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>SKU</th>
+                      <th>Warehouse</th>
+                      <th>Qty On Hand</th>
+                      <th>Reserved</th>
+                      <th>Available</th>
+                      <th>Valuation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockInventoryReport.items?.length === 0 ? (
+                      <tr><td colSpan={7} className="text-center p-4">No inventory found for this date</td></tr>
+                    ) : (
+                      stockInventoryReport.items?.map((item: any, idx: number) => (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 600 }}>{item.product_name}</td>
+                          <td>{item.sku}</td>
+                          <td>{item.warehouse_name}</td>
+                          <td>{item.quantity_on_hand}</td>
+                          <td>{item.quantity_reserved}</td>
+                          <td style={{ color: item.available_quantity > 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                            {item.available_quantity}
+                          </td>
+                          <td><strong>₹{item.valuation?.toFixed(2)}</strong></td>
                         </tr>
                       ))
                     )}

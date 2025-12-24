@@ -107,6 +107,15 @@ export const reportsAPI = {
     apiClient.get('/reports/detailed-sales-report', {
       params: { start_date: startDate, end_date: endDate, format: 'excel' },
       responseType: 'blob'
+    }),
+  getStockInventoryReport: (date?: string) =>
+    apiClient.get('/reports/stock-inventory', {
+      params: { date }
+    }),
+  downloadStockInventoryExcel: (date?: string) =>
+    apiClient.get('/reports/stock-inventory', {
+      params: { date, format: 'excel' },
+      responseType: 'blob'
     })
 };
 

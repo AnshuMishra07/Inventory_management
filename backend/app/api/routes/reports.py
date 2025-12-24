@@ -11,7 +11,8 @@ from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.models.models import (
     User, Product, Inventory, Warehouse, SalesOrder, SalesOrderItem,
-    Category, Supplier, InventoryAlert, OrderStatus
+    Category, Supplier, InventoryAlert, OrderStatus, InventoryTransaction,
+    TransactionType
 )
 from app.schemas.schemas import (
     InventoryValueReport,
@@ -619,4 +620,184 @@ def generate_detailed_sales_excel(data: dict) -> StreamingResponse:
         iter([output.getvalue()]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=detailed_sales_report_{data['period']['start_date']}_to_{data['period']['end_date']}.xlsx"}
+    )
+
+
+@router.get("/stock-inventory")
+async def get_stock_inventory_report(
+    date: Optional[str] = Query(None),
+    format: str = "json",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get Stock Inventory Report (Real-time or Historical)
+    """
+    now = datetime.now()
+    if not date:
+        target_date = now
+    else:
+        try:
+            # Handle both YYYY-MM-DD and full ISO format
+            if len(date) == 10:
+                target_date = datetime.fromisoformat(date).replace(hour=23, minute=59, second=59)
+            else:
+                target_date = datetime.fromisoformat(date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    # Real-time is today or future
+    is_real_time = target_date >= now.replace(hour=0, minute=0, second=0)
+
+    if is_real_time:
+        # Pull from Inventory table for "True Real Time"
+        results = db.query(
+            Product.name.label("product_name"),
+            Product.sku,
+            Warehouse.name.label("warehouse_name"),
+            Inventory.quantity_on_hand,
+            Inventory.quantity_reserved,
+            Product.cost_price
+        ).join(
+            Inventory, Product.id == Inventory.product_id
+        ).join(
+            Warehouse, Inventory.warehouse_id == Warehouse.id
+        ).all()
+        
+        report_items = [
+            {
+                "product_name": r.product_name,
+                "sku": r.sku,
+                "warehouse_name": r.warehouse_name,
+                "quantity_on_hand": r.quantity_on_hand,
+                "quantity_reserved": r.quantity_reserved,
+                "available_quantity": r.quantity_on_hand - r.quantity_reserved,
+                "valuation": r.quantity_on_hand * r.cost_price
+            }
+            for r in results
+        ]
+    else:
+        # BACKTRACK LOGIC: 
+        # Historical Qty = Current Qty - (Transactions since target_date)
+        
+        # 1. Get current inventory
+        current_inv = db.query(
+            Product.id.label("product_id"),
+            Product.name.label("product_name"),
+            Product.sku,
+            Warehouse.id.label("warehouse_id"),
+            Warehouse.name.label("warehouse_name"),
+            Inventory.quantity_on_hand.label("current_qty"),
+            Product.cost_price
+        ).join(
+            Inventory, Product.id == Inventory.product_id
+        ).join(
+            Warehouse, Inventory.warehouse_id == Warehouse.id
+        ).all()
+
+        report_items = []
+        for r in current_inv:
+            # 2. Get transactions that happened BETWEEN target_date AND now
+            # We subtract these from current inventory to "go back in time"
+            trans_since = db.query(
+                func.sum(InventoryTransaction.quantity)
+            ).filter(
+                InventoryTransaction.product_id == r.product_id,
+                InventoryTransaction.warehouse_id == r.warehouse_id,
+                InventoryTransaction.created_at > target_date
+            ).scalar() or 0
+
+            historical_qty = int(r.current_qty) - int(trans_since)
+            
+            report_items.append({
+                "product_name": r.product_name,
+                "sku": r.sku,
+                "warehouse_name": r.warehouse_name,
+                "quantity_on_hand": historical_qty,
+                "quantity_reserved": 0, # Historical reserved state not stored
+                "available_quantity": historical_qty,
+                "valuation": float(historical_qty) * float(r.cost_price or 0)
+            })
+
+    summary = {
+        "report_date": target_date.strftime("%Y-%m-%d"),
+        "is_real_time": is_real_time,
+        "items": report_items,
+        "totals": {
+            "total_quantity": sum(item["quantity_on_hand"] for item in report_items),
+            "total_valuation": sum(item["valuation"] for item in report_items)
+        }
+    }
+
+    if format == "excel":
+        return generate_stock_inventory_excel(summary)
+    
+    return summary
+
+
+def generate_stock_inventory_excel(data: dict) -> StreamingResponse:
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill
+    except ImportError:
+        raise HTTPException(status_code=500, detail="openpyxl not installed")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Stock Inventory"
+
+    # Headers
+    headers = ["Product Name", "SKU", "Warehouse", "Qty On Hand", "Reserved", "Available", "Valuation (₹)"]
+    ws.append(["Stock Inventory Report", f"As of: {data['report_date']}"])
+    ws.append([])
+    ws.append(headers)
+
+    # Style Header
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col_num)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    # Data
+    for item in data['items']:
+        ws.append([
+            item['product_name'],
+            item['sku'],
+            item['warehouse_name'],
+            item['quantity_on_hand'],
+            item['quantity_reserved'],
+            item['available_quantity'],
+            float(f"{item['valuation']:.2f}")
+        ])
+
+    # Totals Row
+    ws.append([])
+    ws.append([
+        "TOTALS", "", "", 
+        data['totals']['total_quantity'], 
+        "", "",
+        float(f"{data['totals']['total_valuation']:.2f}")
+    ])
+    
+    # Auto-width
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except: pass
+        ws.column_dimensions[column].width = max_length + 2
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=stock_inventory_{data['report_date']}.xlsx"}
     )
